@@ -1,4 +1,5 @@
-CXX = /opt/intel/bin/icc
+#CXX = /opt/intel/bin/icc
+CXX = gcc
 
 CXXFLAGS = -g -std=c99 -Wall -Wextra -pedantic -D_POSIX_C_SOURCE=199309 -O2 $(EXTRA_CXXFLAGS)
 
