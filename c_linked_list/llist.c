@@ -98,14 +98,10 @@ llist_t* make_new_node(void* elem)
 
 /* initialization and destruction methods */
 
-llist_head_t* llist_init(void (*free_data)(void* data), llist_head_t* where)
+llist_head_t* llist_init(void (*free_data)(void* data))
 {
     llist_head_t* head;
-    if (!where) {
-	head = malloc(sizeof(llist_head_t));
-    } else {
-	head = where;
-    }
+    head = malloc(sizeof(llist_head_t));
     
     if (head) {
 	head->length = 0;

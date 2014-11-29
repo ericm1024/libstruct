@@ -48,7 +48,7 @@ typedef struct head {
  * Returns a null pointer if the allocation fails.
  * free_data and where may be a null pointer.
  */ 
-llist_head_t* llist_init(void (*free_data)(void* data), llist_head_t* where);
+llist_head_t* llist_init(void (*free_data)(void* data));
 
 /* Destroys (frees) an entire list. head shall not be null.
  */
