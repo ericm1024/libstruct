@@ -169,6 +169,7 @@ void test_insert()
 	}
 
 	for (size_t i = n; i < 2*n; i++) {
+		data[i].x = rand(); /* initialize to shut up valgrind */
 		void *e = avl_find(&t, (void*)&data[i]);
 		ASSERT_TRUE(e == NULL,
 			    "test_basic: error. found element in tree"
@@ -196,6 +197,104 @@ void test_delete()
 	}
 }
 
+/* avl next */
+void test_itterators()
+{
+	AVL_TREE(t, &point_cmp, test_t, avl);
+	test_t data[n];
+
+	for (size_t i = 0; i < n; i++) {
+		data[i].x = i;
+		avl_insert(&t, (void*)&data[i]);
+	}
+
+	ASSERT_TRUE(avl_first(&t) == &data[0], "test_itterators: avl_first did"
+		    " not return first element.\n");
+	ASSERT_TRUE(avl_last(&t) == &data[n-1], "test_itterators: avl_last did"
+		    " not return last element.\n");
+
+	void *node = avl_first(&t);
+	for (size_t i = 0; i < n; i++) {
+		ASSERT_FALSE(node == NULL, "test_itterators: got null node"
+			     " when more nodes were expected.\n");
+		ASSERT_TRUE(node == &data[i], "test_itterators: traversed out"
+			    " of order.\n");
+		if (i > 0) {
+			ASSERT_TRUE(avl_prev(&t, node) == &data[i-1],
+				    "test_itterators: avl_prev does not give"
+				    " previous element.\n");
+			ASSERT_TRUE(avl_next(&t, avl_prev(&t, node)) == &data[i],
+				    "test_itterators: next of prev does not give"
+				    " current node.\n");
+		} else {
+			ASSERT_TRUE(node == avl_first(&t), "test_itterators:"
+				    " first node not equal to avl_first");
+			ASSERT_TRUE(avl_prev(&t, node) == NULL,
+				    "test_itterators: avl_prev of first element"
+				    " does not give NULL.\n");
+		}
+		if (i < n-1)
+			ASSERT_TRUE(avl_prev(&t, avl_next(&t, node)) == &data[i],
+				    "test_itterators: prev of next does not give"
+				    " current node.\n");
+		else {
+			ASSERT_TRUE(avl_next(&t, node) == NULL, "test_itterators:"
+				    " next of last nodes does not give null.\n");
+			ASSERT_TRUE(node == avl_last(&t), "test_itterators:"
+				    " last node not equal to avl_last");
+		}
+		node = avl_next(&t, node);
+	}			    
+}
+
+/* avl splice */
+void test_splice()
+{
+	AVL_TREE(t, &point_cmp, test_t, avl);
+	AVL_TREE(s, &point_cmp, test_t, avl);
+	test_t data[n*2];
+	
+	for (size_t i = 0; i < n; i++) {
+		data[i].x = rand();
+		data[i + n].x = rand();
+		avl_insert(&t, (void*)&data[i]);
+		avl_insert(&s, (void*)&data[i+n]);
+	}
+	avl_splice(&t, &s);
+	
+	assert_is_valid_tree(&t);
+	ASSERT_TRUE(s.n_nodes == 0, "test_splice: splicee.n_nodes was not zero"
+		    " after splicing.\n");
+	ASSERT_TRUE(s.root == NULL, "test_splice: splicee.root was not null"
+		    " after splicing.\n");
+
+	for (size_t i = 0; i < n*2; i++) {
+		ASSERT_TRUE(avl_find(&t, (void*)&data[i]) == &data[i],
+			    "test_splice: could not find element in target tree"
+			    " after splicing.\n");
+	}
+}
+
+/* avl for each */
+void test_for_each()
+{
+	AVL_TREE(t, &point_cmp, test_t, avl);
+	test_t data[n];
+
+	for (size_t i = 0; i < n; i++) {
+		data[i].x = i;
+		avl_insert(&t, (void*)&data[i]);
+	}
+
+	avl_for_each(&t, i) {
+		((test_t*)i)->x++;
+	}
+	
+	for (int i = 0; i < n; i++)
+		ASSERT_TRUE(data[i].x == i+1, "test_for_each: data was not"
+			    " modified.\n");
+}
+
 /**** main ****/
 
 int main(int argc, char **argv)
@@ -205,5 +304,8 @@ int main(int argc, char **argv)
 	srand(time(NULL));
 	REGISTER_TEST(test_insert);
 	REGISTER_TEST(test_delete);
+	REGISTER_TEST(test_itterators);
+	REGISTER_TEST(test_splice);
+	REGISTER_TEST(test_for_each);
 	return run_all_tests();
 }

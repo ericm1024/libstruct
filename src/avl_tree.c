@@ -491,8 +491,11 @@ void *avl_next(avl_head_t *hd, void *elem)
 	if (n->children[AVL_RIGHT])
 		return node2data(hd, closest_child(n, AVL_RIGHT));
 	else {
-		while(get_parent(n) && child_index(n, get_parent(n)) != AVL_LEFT)
+		avl_node_t *prev = NULL;
+		while (n && prev == n->children[AVL_RIGHT]) {
+			prev = n;
 			n = get_parent(n);
+		}
 		return node2data(hd, n);
 	}
 }
@@ -506,8 +509,11 @@ void *avl_prev(avl_head_t *hd, void *elem)
 	if (n->children[AVL_LEFT])
 		return node2data(hd, closest_child(n, AVL_LEFT));
 	else {
-		while(get_parent(n) && child_index(n, get_parent(n)) != AVL_RIGHT)
+		avl_node_t *prev = NULL;
+		while (n && prev == n->children[AVL_LEFT]) {
+			prev = n;
 			n = get_parent(n);
+		}
 		return node2data(hd, n);
 	}
 }
@@ -534,7 +540,12 @@ void *avl_last(avl_head_t *hd)
 
 void avl_splice(avl_head_t *hd, avl_head_t *splicee)
 {
-	for ( void *n = avl_first(splicee); n; n = avl_next(hd, n))
+	if (!splicee->root)
+		return;
+	while (splicee->root) {
+		void *n = node2data(splicee, splicee->root);
+		avl_delete(splicee, n);
 		avl_insert(hd, n);
+	}
 }
 

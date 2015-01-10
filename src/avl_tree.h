@@ -84,6 +84,14 @@ extern void *avl_first(avl_head_t *hd);
 extern void *avl_first(avl_head_t *hd);
 
 /**
+ * Get the in order last element in the tree.
+ *
+ * \param hd  Pointer to the head of the tree.
+ * \return Pointer to the last element in the tree.
+ */
+extern void *avl_last(avl_head_t* hd);
+
+/**
  * Insert all the elements of another avl tree into the avl tree in hd. This
  * invalidates splicee. Specifically, splicee's members are nulled out.
  *
@@ -98,7 +106,7 @@ extern void avl_splice(avl_head_t *hd, avl_head_t *splicee);
  * \param head       Pointer to the head of the tree to apply the function to.
  * \param iter_name  Name of the loop variable. Raw token. A variable of type
  *                   void * with this name is declared by this macro (not by the
- *                   caller.
+ *                   caller).
  */
 #define avl_for_each(head, iter_name)                           \
 	for (void *iter_name = avl_first(head); iter_name;	\
@@ -107,12 +115,15 @@ extern void avl_splice(avl_head_t *hd, avl_head_t *splicee);
 /**
  * Loop over the elements in the tree in the range [first, last)
  *
- * \param head    Pointer to the head of the tree to apply the function to.
- * \param first   Pointer to the first element in the tree to apply the
- *                function to.
- * \param last    Pointer to the node after the last node to apply the
- *                function to. Matching is determined by the return value of
- *                the tree's acl_cmp_t function.
+ * \param head       Pointer to the head of the tree to apply the function to.
+ * \param iter_name  Name of the loop variable. Raw token. A variable of type
+ *                   void * with this name is declared by this macro (not by the
+ *                   caller).
+ * \param first      Pointer to the first element in the tree to apply the
+ *                   function to.
+ * \param last       Pointer to the node after the last node to apply the
+ *                   function to. Matching is determined by the return value of
+ *                   the tree's acl_cmp_t function.
  */
 #define avl_for_each_range(head, iter_name, first, last)                  \
 	for (void *iter_name = first; (head)->cmp(iter_name, last) != 0;  \
