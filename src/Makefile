@@ -37,7 +37,7 @@ list.o: list.c list.h list_types.h
 avl_test.o: avl_test.c avl_tree.h
 	$(CXX) $(CXXFLAGS) -c $<
 
-avl_tree.o: avl_tree.c avl_tree.h avl_tree_types.h
+avl_tree.o: avl_tree.c avl_tree.h avl_tree_types.h bitops.h
 	$(CXX) $(CXXFLAGS) -c $<
 
 test.o: test.c test.h

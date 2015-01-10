@@ -14,6 +14,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+typedef struct {
+	int x;
+	avl_node_t avl;
+} test_t;
+
 size_t count_nodes(avl_node_t *n)
 {
 	if (!n)
@@ -34,51 +39,38 @@ size_t height(avl_node_t *n)
 	}
 }
 
-bool valid_node(avl_head_t *hd, avl_node_t *n)
+void valid_node(avl_head_t *hd, avl_node_t *n)
 {
 	if (!n)
-		return true;
+		return;
 	
 	short bf = height(n->children[1]) - height(n->children[0]);
-	bool ret = (bf == n->balance);
-	
-	if (n->parent) {
-		if (n->parent->children[0] == n)
-			ret = n->cradle == 0 ? ret : false;
-		else if (n->parent->children[1] == n)
-			ret = n->cradle == 1 ? ret : false;
-		else
-			ret = false;
-	}
+	ASSERT_TRUE(bf == n->balance, "valid_node: bad balance factor.\n");
 
 	if (n->children[0])
-		ret = hd->cmp((void *)((uintptr_t)n->children[0] - hd->offset),
-			      (void*)((uintptr_t)n - hd->offset)) == -1 ? ret : false;
+		ASSERT_TRUE(hd->cmp((void *)((uintptr_t)n->children[0] - hd->offset),
+				    (void*)((uintptr_t)n - hd->offset)) == -1,
+			    "valid_node: left child was not less than root.\n");
 	if (n->children[1])
-		ret = hd->cmp((void*)((uintptr_t)n->children[1] - hd->offset),
-			      (void*)((uintptr_t)n - hd->offset)) == 1 ? ret : false;
+		ASSERT_TRUE(hd->cmp((void*)((uintptr_t)n->children[1] - hd->offset),
+				    (void*)((uintptr_t)n - hd->offset)) == 1,
+			    "valid_node: right child was not greater than root.\n");
 	if (n->children[0] && n->children[1])
-		ret = hd->cmp((void*)((uintptr_t)n->children[0] - hd->offset),
+		ASSERT_TRUE(hd->cmp((void*)((uintptr_t)n->children[0] - hd->offset),
 			      (void*)((uintptr_t)n->children[1] - hd->offset))
-			== -1 ? ret : false;
+			    == -1, "valid_node: left child was not less than "
+			           "right child.\n");
 	
-	ret = valid_node(hd, n->children[0]) ? ret : false;
-	ret = valid_node(hd, n->children[1]) ? ret : false;
-	return ret;
+	valid_node(hd, n->children[0]);
+	valid_node(hd, n->children[1]);
 }
 
 void assert_is_valid_tree(avl_head_t *hd)
 {
 	ASSERT_TRUE(hd->n_nodes == count_nodes(hd->root),
 		"is_valid_avl_tree: hd->n_nodes is wrong.\n");
-	ASSERT_TRUE(valid_node(hd, hd->root),
-		    "is_valid_avl_tree: hd->root is not a valid node.\n");
+	valid_node(hd, hd->root);
 }
-
-typedef struct {
-	int x;
-	avl_node_t avl;
-} test_t;
 
 void print_node(avl_node_t *n, size_t offset)
 {
@@ -155,7 +147,7 @@ int point_cmp(void *lhs, void *rhs)
 
 /**** tests ****/
 
-static const size_t n = 50;
+static const size_t n = 200;
 
 void test_insert()
 {
@@ -166,6 +158,8 @@ void test_insert()
 		data[i].x = rand();
 		avl_insert(&t, (void*)&data[i]);
 		assert_is_valid_tree(&t);
+		ASSERT_TRUE(t.n_nodes == (i + 1),
+			    "test_insert: error. n_nodes is wrong.\n");
 	}
 
 	for (size_t i = 0; i < n; i++) {
@@ -178,27 +172,27 @@ void test_insert()
 		void *e = avl_find(&t, (void*)&data[i]);
 		ASSERT_TRUE(e == NULL,
 			    "test_basic: error. found element in tree"
-			    " that was not inserted.");
-	}
-
-	for (size_t i = 0; i < n; i++) {
-		avl_delete(&t, (void*)&data[i]);
-		assert_is_valid_tree(&t);
-		ASSERT_TRUE(avl_find(&t, (void*)&data[i]) == NULL,
-			    "test_basic: error. found element after deleting it.");
+			    " that was not inserted.\n");
 	}
 }
 
 void test_delete()
 {
 	AVL_TREE(t, &point_cmp, test_t, avl);
-	test_t data[n*2];
+	test_t data[n];
+
+	for (size_t i = 0; i < n; i++) {
+		data[i].x = rand();
+		avl_insert(&t, (void*)&data[i]);
+	}
 	
 	for (size_t i = 0; i < n; i++) {
 		avl_delete(&t, (void*)&data[i]);
 		assert_is_valid_tree(&t);
 		ASSERT_TRUE(avl_find(&t, (void*)&data[i]) == NULL,
-			    "test_basic: error. found element after deleting it.");
+			    "test_basic: error. found element after deleting it.\n");
+		ASSERT_TRUE(t.n_nodes == n - (i + 1),
+			    "test_basic: error. n_nodes is wrong.\n");
 	}
 }
 
