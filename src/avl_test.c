@@ -93,44 +93,6 @@ void print_tree(avl_head_t *t)
 	printf("\n");
 }
 
-
-/* 0 on sucess, 1 on failure. takes test and control */
-/*
-static int point_equal(test_t *t, test_t *c,
-		       const char *msg)
-{
-	if (t->x == c->x) {
-		return 0;
-	} else {
-		fprintf(OUT_FILE, "%s", msg);
-		return 1;
-	}
-}
-
-// generate a random point
-static void rand_point(test_t *p)
-{
-	*p = (test_t) {rand(),(avl_node_t){NULL, {NULL, NULL}, 0, 0}};
-}
-
-// copy the provided point into a new point (allocates memory)
-static test_t *copy_point(test_t *src)
-{
-	test_t *copy = (test_t *)malloc(sizeof(test_t));
-	if (!copy) {
-		fprintf(stderr, "copy_point: failed to allocate new point\n");
-		return NULL;
-	}
-	*copy = *src;
-	return copy;
-}
-
-static void mutate_point(test_t *p)
-{
-	p->x /= 5;
-}
-*/
-
 int point_cmp(void *lhs, void *rhs)
 {
 	int rx = ((test_t*)rhs)->x;
@@ -290,9 +252,35 @@ void test_for_each()
 		((test_t*)i)->x++;
 	}
 	
-	for (int i = 0; i < n; i++)
-		ASSERT_TRUE(data[i].x == i+1, "test_for_each: data was not"
+	for (size_t i = 0; i < n; i++)
+		ASSERT_TRUE(data[i].x == (int)i+1, "test_for_each: data was not"
 			    " modified.\n");
+}
+
+/* avl for each range */
+void test_for_each_range()
+{
+	AVL_TREE(t, &point_cmp, test_t, avl);
+	test_t data[n];
+
+	for (size_t i = 0; i < n; i++) {
+		data[i].x = i;
+		avl_insert(&t, (void*)&data[i]);
+	}
+
+	avl_for_each_range(&t, i, (void*)&data[n/4], (void*)&data[n - n/4]) {
+		((test_t*)i)->x++;
+	}
+
+	for (size_t i = 0; i < n/4; i++)
+		ASSERT_TRUE(data[i].x == (int)i, "test_for_each_range: data out"
+			    " of range (before start) was modified.\n");
+	for (size_t i = n/4; i < n - n/4; i++)
+		ASSERT_TRUE(data[i].x == (int)i+1, "test_for_each_range: data in"
+			    " range was not modified.\n");
+	for (size_t i = n - n/4; i < n; i++)
+		ASSERT_TRUE(data[i].x == (int)i, "test_for_each_range: data out"
+			    " of range (after end) was modified.\n");
 }
 
 /**** main ****/
@@ -307,5 +295,6 @@ int main(int argc, char **argv)
 	REGISTER_TEST(test_itterators);
 	REGISTER_TEST(test_splice);
 	REGISTER_TEST(test_for_each);
+	REGISTER_TEST(test_for_each_range);
 	return run_all_tests();
 }
