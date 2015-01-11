@@ -36,7 +36,7 @@
  * \param member     (token) Name of the avl_node_t member in container.
  */
 #define AVL_TREE(name, lt, container, member)                             \
-	avl_head_t name = {NULL, 0, (avl_cmp_t)lt, offsetof(container, member)}
+	avl_head_t name = {NULL, 0, (avl_cmp_t)(lt), offsetof(container, member)}
 
 /**
  * Insert an element into the tree.
