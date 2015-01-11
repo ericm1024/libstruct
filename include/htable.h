@@ -24,7 +24,7 @@
 #ifndef STRUCT_HTABLE_H
 #define STRUCT_HTABLE_H 1
 
-#include "types.h"
+#include "libstruct.h"
 
 
 #endif /* STRUCT_HTABLE_H */

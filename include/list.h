@@ -23,7 +23,7 @@
 #ifndef STRUCT_LIST_H
 #define STRUCT_LIST_H 1
 
-#include "types.h"
+#include "libstruct.h"
 
 /**
  * \brief Create and initialize a new empty list_head.
