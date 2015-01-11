@@ -1,7 +1,10 @@
-CXX = gcc
+CC = gcc
 OPTFLAGS = -O0
-CXXFLAGS = -g -std=gnu99 -Wall -Wextra $(OPTFLAGS) -pedantic -DDEBUG
+INCPATH = ../include
+CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I $(INCPATH)
 TARGETS = flist_test list_test avl_test
+
+vpath %.h $(INCPATH)
 
 all: $(TARGETS)
 
@@ -14,31 +17,31 @@ test: $(TARGETS)
 	valgrind --leak-check=full ./avl_test
 
 flist_test: flist_test.o flist.o
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 list_test: list_test.o list.o
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 avl_test: avl_test.o avl_tree.o test.o
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 flist_test.o: flist_test.c flist.h
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 
 flist.o: flist.c flist.h flist_types.h
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 
 list_test.o: list_test.c list.h
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 
 list.o: list.c list.h list_types.h
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 
 avl_test.o: avl_test.c avl_tree.h
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 
 avl_tree.o: avl_tree.c avl_tree.h avl_tree_types.h bitops.h
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 
 test.o: test.c test.h
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
