@@ -24,6 +24,7 @@
 #define STRUCT_TYPES_H 1
 
 #include <stddef.h>
+#include <stdint.h>
 
 /* avl tree types */
 struct avl_node {
@@ -47,12 +48,12 @@ typedef struct avl_head avl_head_t;
 
 /* forward (singly-linked) list types */
 struct flist {
-  struct flist *next;
+	struct flist *next;
 };
 
 struct flist_head {
-  struct flist *first;
-  unsigned long length;
+	struct flist *first;
+	unsigned long length;
 };
 
 /* list (doubly-linked) list types */
@@ -68,10 +69,16 @@ struct list_head {
 };
 
 /* hash table types */
+struct bucket;
 struct htable {
+	size_t size;
 	size_t entries;
-	void *buckets;
-	void *meta;
+	uint32_t seed1;
+	uint32_t seed2;
+	struct bucket *table1;
+	struct bucket *table2;
+	struct bucket *stash;
 };
+typedef struct htable htable_t;
 
 #endif /* STRUCT_TYPES_H */
