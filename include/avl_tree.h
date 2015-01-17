@@ -94,14 +94,6 @@ extern void *avl_first(avl_head_t *hd);
  * \param hd  Pointer to the head of the tree.
  * \return Pointer to the last element in the tree.
  */
-extern void *avl_first(avl_head_t *hd);
-
-/**
- * Get the in order last element in the tree.
- *
- * \param hd  Pointer to the head of the tree.
- * \return Pointer to the last element in the tree.
- */
 extern void *avl_last(avl_head_t* hd);
 
 /**
