@@ -25,7 +25,7 @@ list_test: list_test.o list.o
 avl_test: avl_test.o avl_tree.o test.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-htable_test: htable_test.o htable.o test.o fasthash.o murmurhash.
+htable_test: htable_test.o htable.o test.o fasthash.o murmurhash.o
 	$(CC) $(CFLAGS) -lm -o $@ $^
 
 flist_test.o: flist_test.c flist.h libstruct.h
