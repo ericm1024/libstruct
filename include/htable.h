@@ -59,7 +59,9 @@ void htable_destroy(htable_t *ht);
  * \param ht    Pointer to the hash table to remove from.
  * \param key   Key to insert.
  * \param value Value corresponding to the key.
- * \return true if the insertion suceeded, false if the table is full.
+ * \return true if the insertion suceeded, false if the table is full. Note
+ *         that if the inserted key already exists, insert will return true
+ *         without modifying the table.
  */
 bool htable_insert(htable_t *ht, uint64_t key,
 		   void const *value);
@@ -80,5 +82,16 @@ bool htable_exists(htable_t const *ht, uint64_t key);
  * \param key  Key to remove.
  */
 void htable_remove(htable_t *ht, uint64_t key);
+
+/**
+ * \brief Get the value corresponding to a key, if such a key exists.
+ *
+ * \param ht   Pointer to the hash table to search.
+ * \param key  Key to searh for.
+ * \param out  If a value is found, it is put here.
+ * \return true if a value corresponding to the given key was found, false if
+ *         it was not found.
+ */
+bool htable_get(htable_t const *ht, uint64_t key, void const **out);
 
 #endif /* STRUCT_HTABLE_H */
