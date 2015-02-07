@@ -23,8 +23,7 @@
  */
 
 static const size_t n = 100;
-struct value { int x; int y; };
-	
+struct value { int x; int y; };	
 
 /* 
  * 1. init & destroy:
@@ -97,11 +96,17 @@ void test_insert_many()
 	htable_init(&t, 16);
 	size_t initial_size = t.size;
 	
-	for (size_t i = 0; i < n; i++)
+	for (size_t i = 0; i < n; i++) {
 		ASSERT_TRUE(htable_insert(&t, i, NULL), "test_insert_many: "
 			    "insert failed.\n");
+                ASSERT_TRUE(htable_exists(&t, i), "test_insert_many: exists "
+                            "returns false imediately after inserting");
+        }
+        
 	ASSERT_TRUE(t.entries == n, "test_insert_many: entries was not "
 		"incremented properly.\n");
+        printf("entries is %zu \n", t.entries);
+
 	for (size_t i = 0; i < n; i++)
 		ASSERT_TRUE(htable_exists(&t, i), "test_insert_many: elements "
 			    "were clobered on insertion.\n");
@@ -110,7 +115,7 @@ void test_insert_many()
 
 	ASSERT_TRUE(new_size > initial_size, "test_insert_many: table did not "
 		    "resize propperly.\n");
-	
+
 	htable_destroy(&t);
 }
 
@@ -179,7 +184,6 @@ void test_remove()
 	
 	/* initialize the rest of the keys (for negative asserts) */
 	for (size_t i = n; i < 2*n; i++) {
-		keys[i] = i;
 		htable_remove(&t, i);
 		ASSERT_TRUE(t.entries == n, "test_remove: entries was "
 			    "decremented after removing key not in table.\n");
@@ -248,12 +252,12 @@ void test_get()
 int main(void) 
 {
 	srand(time(NULL));
-	//REGISTER_TEST(test_init_destroy);
-	//REGISTER_TEST(test_insert_same);
+	REGISTER_TEST(test_init_destroy);
+	REGISTER_TEST(test_insert_same);
 	REGISTER_TEST(test_insert_many);
-	//REGISTER_TEST(test_exists);
-	//REGISTER_TEST(test_remove);
-	//REGISTER_TEST(test_get);
+	REGISTER_TEST(test_exists);
+	REGISTER_TEST(test_remove);
+	REGISTER_TEST(test_get);
 	return run_all_tests();
 }
 

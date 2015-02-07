@@ -48,13 +48,15 @@
 #error "Error. Don't have posix_memalign"
 #endif
 
-/*
+/**
+ * \def
  * Cachelines are 64 bytes. Yes this isn't portable but I can't find a macro for
  * it.
  */
 #define CACHELINE ((unsigned)64)
 
-/*
+/**
+ * \def
  * On 64 bit systems this works out to 4, but to 32 bit systems it works out
  * to 5 with 4 bytes wasted.
  */ 
@@ -71,7 +73,10 @@
  * values from being inserted, which is an arbitrary limitation that we want
  * to avoid. We comprimize by using the least signifficant bit. 0 signifies
  * that the bucket is not in use, 1 signifies that it is. Hence why uintptr_t
- * is typedef'd to value_t.
+ * is typedef'd to value_t. The result of this is that pointers passed by
+ * the user must be aligned on at least a 2 byte boundary. This shouldn't be
+ * a huge limitation but this design decision can be revisited later if
+ * necessary.
  */
 
 typedef uintptr_t value_t;
@@ -108,7 +113,8 @@ static inline void make_empty(value_t *target)
 	*target = 0;
 }
 
-/*
+/**
+ * \param tsize  Current size of the hash table in buckets.
  * Max number of times to kick out an element and reinsert the evicted element
  * (i.e. max number of times to itterate) during insertion.
  * 
@@ -124,24 +130,31 @@ static inline size_t max_tries(size_t tsize)
 	return ntries * 16;
 }
 
+/*! return value for insertion functions. Signals sucessfull insertion */
+#define INSERT_SUCCESS (0)
+/*! return value for insertion functions. Signals that the inserted key
+ * already existed */
+#define INSERT_EEXISTS (1)
+/*! return value for insertion functions. Signals that bucket was full */
+#define INSERT_EFULL (2)
+
 /**
  * \brief Insert a key-value pair into a specified bucket.
  *
  * \param bucket  Pointer to the bucket to insert into.
  * \param key     Pointer to the key to insert.
- * \param vlaue   Pointer to pointer to value to insert.
- * \return 1 if the insertion sucedded without having to kick anything out,
- *         0 if something was kicked out, and -1 if the element already
- *         existed.
+ * \param value   Pointer to pointer to value to insert.
+ * \return INESRT_SUCCESS if the insertion succeeded, INSERT_EEXISTS if the
+ *         key already exists, INSERT_EFULL if the bucket is full.
  *
  * \detail If a k-v pair is evicted to make room for the new k-v pair, then the
  *         evicted pair is stored in the the location pointed to by the key and
  *         value arguments. If this seems stupid, go read about how cuckoo
  *         hashing works.
  */
-static inline int insert_into_bucket(bucket_t *bucket,
-				     uint64_t *key,       /* in & out */
-				     void const **value)  /* in & out */
+static int insert_into_bucket(bucket_t *bucket,
+                              uint64_t *key,       /* in & out */
+                              void const **value)  /* in & out */
 {
 	/* look for an empty slot in the bucket an insert into it */
 	size_t i = 0;
@@ -149,7 +162,7 @@ static inline int insert_into_bucket(bucket_t *bucket,
 		if (is_empty(bucket->values[i]))
 			break;
 		else if (*key == bucket->keys[i])
-			return -1;
+			return INSERT_EEXISTS;
 	}
 
 	if (i == BUCKET_SIZE)
@@ -165,24 +178,24 @@ static inline int insert_into_bucket(bucket_t *bucket,
 	/* overwrite the in/out variables */
 	*key = tmp_key;
 	*value = get_value(tmp_val);
-	return is_empty(tmp_val);
+
+	return is_empty(tmp_val) ? INSERT_SUCCESS : INSERT_EFULL;
 }
 
 /**
  * \brief Insert into the stash. This function has similar behavior to
  *        insert_into_bucket, excepting that if the stash is full, the
- *        a k-v pair is NOT evicted and false is returned.
+ *        a k-v pair is NOT evicted and INSERT_EFULL is returned.
  *
  * \param stash  Pointer to the stash (bucket) to insert into
  * \param key    Key to insert.
  * \param value  Value to insert.
- * \return 1 if the insertion sucedded without having to kick anything out,
- *         0 if something was kicked out, and -1 if the element already
- *         existed.
+ * \return INESRT_SUCCESS if the insertion succeeded, INSERT_EEXISTS if the
+ *         key already exists, INSERT_EFULL if the bucket is full.
  */
-static inline int insert_into_stash(bucket_t *stash,
-				     uint64_t key,
-				     void const *value)
+static int insert_into_stash(bucket_t *stash,
+                             uint64_t key,
+                             void const *value)
 {
 	/* look for an empty slot in the bucket an insert into it */
 	size_t i = 0;
@@ -190,20 +203,20 @@ static inline int insert_into_stash(bucket_t *stash,
 		if (is_empty(stash->values[i]))
 			break;
 		else if (key == stash->keys[i])
-			return -1;
+			return INSERT_EEXISTS;
 	}
 
 	/* if we got to the end of the stash, it's full */
 	if (i == BUCKET_SIZE)
-		return 0;
+		return INSERT_EFULL;
 	
 	/* else insert sucessfully */
 	stash->keys[i] = key;
 	set_value(&(stash->values[i]), value);
-	return 1;
+	return INSERT_SUCCESS;
 }
 
-static inline bool bucket_contains(bucket_t *b, uint64_t key)
+static bool bucket_contains(bucket_t *b, uint64_t key)
 {
 	for (size_t i = 0; i < BUCKET_SIZE; i++) {
 		if (is_empty(b->values[i]))
@@ -214,7 +227,7 @@ static inline bool bucket_contains(bucket_t *b, uint64_t key)
 	return false;
 }
 
-static inline bool bucket_remove(bucket_t *b, uint64_t victim)
+static bool bucket_remove(bucket_t *b, uint64_t victim)
 {
 	size_t i = 0;
 	/* look for the victim */
@@ -228,15 +241,19 @@ static inline bool bucket_remove(bucket_t *b, uint64_t victim)
 	/* bail if we didn't find it */
 	if (i == BUCKET_SIZE)
 		return false;
-	
-	/* shift everything else back one */
+
+	/* if necessary, shift everything else back one */
 	for ( ; i < BUCKET_SIZE - 1; i++) {
 		b->keys[i] = b->keys[i+1];
 		b->values[i] = b->values[i+1];
 	}
-	
-	/* empty the end bucket */
-	make_empty(&(b->values[i]));
+
+        /*
+         * edge case -- when emptying full bucket, last value will not
+         * get zeroed as it should. We empty it in all cases because
+         * it is unoccupied in all cases.
+         */
+        make_empty(&(b->values[BUCKET_SIZE - 1]));
 	return true;
 }	
 
@@ -257,15 +274,13 @@ static inline uint32_t hash2(htable_t const *ht, uint64_t key)
  * 
  * \detail Attempts to allocate two arrays of size tsize * sizeof(bucket_t)
  * and one array of size ssize * sizeof(bucket_t). The two tsize'd arrays are
- * put into *table1 and *table2. The ssize'd array is put into *stash. The stash
- * argument may be null as there are cases where we may want to only allocate
- * the tables (i.e. in resize).
+ * put into *table1 and *table2. The ssize'd array is put into *stash.
  * 
  * \param table1  Pointer to where table1 should be put. *table1 is overwritten
  * \param table2  Pointer to where table2 should be put. *table2 is overwritten
  * \param tsize   The size of table to allocate.
  * \param stash   Pointer to where the stash should be put. *stash is
- *                overwritten. Can be null, in which case no stash is allocated.
+ *                overwritten.
  * \param ssize   The size of stash to allocate.
  * \return true if all allocations succeed. false if one or more failed.
  */ 
@@ -297,29 +312,27 @@ static bool do_allocs(bucket_t **table1,
 		goto table2_err;
 	
 	/* allocate a stash */
-	if (stash) {	
-		err = posix_memalign((void**)stash, CACHELINE,
-				     ssize * sizeof(bucket_t));
-		if (err)
-			goto stash_err;
-	}		
+        err = posix_memalign((void**)stash, CACHELINE,
+                             ssize * sizeof(bucket_t));
+        if (err)
+                goto stash_err;	
 
 	/* zero out everything */
 	memset(*table1, 0, tsize * sizeof(bucket_t));
 	memset(*table2, 0, tsize * sizeof(bucket_t));
-	if (stash)
-		memset(*stash, 0, ssize * sizeof(bucket_t));
+	memset(*stash, 0, ssize * sizeof(bucket_t));
 
 	return true;
 
 /* unwind the errors */
 stash_err:
+        *stash = NULL;
 	free(*table2);
-	*table2 = NULL;
 table2_err:
+	*table2 = NULL;
 	free(*table1);
-	*table1 = NULL;
 table1_err:
+        *table1 = NULL;
 	return false;	
 }
 
@@ -338,32 +351,36 @@ table1_err:
  *
  * \param ht     Pointer to the hash table to insert into. ht->entries is
  *               incremented if the insertion succeeds.
- * \param key    Key to insert.
- * \param value  Value to insert.
+ * \param key    Pointer to key to insert. If insertion fails, this pointer
+ *               is overwritten with the leftover key at the end of the
+ *               insertion cycle.
+ * \param value  Pointer to the value to insert. If insertion fails, this
+ *               pointer is overwritten with the leftover value at the end
+ *               of the insertion cycle.
  * \return true if the insertion succeeded, false otherwise
  */
 static bool insert_no_resize(htable_t *ht,
-			     uint64_t key,
-			     void const *value)
+			     uint64_t *key, /* in & out*/
+			     void const **value /* in & out */)
 {
-	void const *local_value = value;
-	uint64_t local_key = key;
+	void const *local_value = *value;
+	uint64_t local_key = *key;
 	size_t max = max_tries(ht->size);
 	int err = 0;
 	
 	for (size_t tries = 0; tries < max; tries++) {
+                /* try inserting into the first table */
 		size_t hash = hash1(ht, local_key) % ht->size;
-		/* try inserting into the first table */
 		err = insert_into_bucket(&(ht->table1[hash]),
 					 &local_key, &local_value);
-		if (err != 0)
+		if (err != INSERT_EFULL)
 			goto out;
 
-		hash = hash2(ht, local_key) % ht->size;
 		/* try inserting into the second table */
+		hash = hash2(ht, local_key) % ht->size;
 		err = insert_into_bucket(&(ht->table2[hash]),
 					 &local_key, &local_value);
-		if (err != 0)
+		if (err != INSERT_EFULL)
 			goto out;
 	}
 	
@@ -372,16 +389,21 @@ static bool insert_no_resize(htable_t *ht,
 	
 out:
 	switch (err) {
-	case 1: /* inserted new, unique entry */
+	case INSERT_SUCCESS:
 		ht->entries++;
-	case -1: /* inserted value that already existed */
+                /* FALL THROUGH */
+	case INSERT_EEXISTS: 
 		return true;
-	case 0: /* insertion failed */
-	default:	
-		return false;
+	case INSERT_EFULL:
+                *value = local_value;
+                *key = local_key;
+                return false;
+        default:
+                assert(false); /* shitty bug notification */
 	}
 }
 
+/* TODO: rewrite the beginning of this to use common code in htable_init */
 /* resize the hash table to the new size */
 static bool resize(htable_t *ht, size_t new_size)
 {
@@ -392,6 +414,8 @@ static bool resize(htable_t *ht, size_t new_size)
 	new_ht.entries = 0; /* handled by insert_no_resize */
 	new_ht.seed1 = ht->seed1;
 	new_ht.seed2 = ht->seed2;
+        uint64_t key;
+        const void *value;
 	
 	if (!do_allocs(&new_ht.table1, &new_ht.table2, new_ht.size,
 		       &new_ht.stash, 1))
@@ -402,6 +426,9 @@ static bool resize(htable_t *ht, size_t new_size)
 		for (size_t j = 0; j < BUCKET_SIZE; j++) {
 			if (is_empty(ht->table1[i].values[j]))
 				break;
+                        key = ht->table1[i].keys[j];
+                        value = get_value(ht->table1[i].values[j]);
+                        
 			/*
 			 * I really hate these asserts, but for now they're here
 			 * to ensure table consistency... if the assert fails,
@@ -415,10 +442,7 @@ static bool resize(htable_t *ht, size_t new_size)
 			 * an infinite loop, reallocating twice as much memory
 			 * on each itteration... hardly a pretty alternative.
 			 */
-			assert(insert_no_resize(&new_ht,
-						ht->table1[i].keys[j],
-						get_value(
-						ht->table1[i].values[j])));
+			assert(insert_no_resize(&new_ht, &key, &value));
 		}
 	}
 
@@ -427,11 +451,11 @@ static bool resize(htable_t *ht, size_t new_size)
 		for (size_t j = 0; j < BUCKET_SIZE; j++) {
 			if (is_empty(ht->table2[i].values[j]))
 				break;
+                        key = ht->table2[i].keys[j];
+                        value = get_value(ht->table2[i].values[j]);
+
 			/* see above wall of text */
-			assert(insert_no_resize(&new_ht,
-						ht->table2[i].keys[j],
-						get_value(
-						ht->table2[i].values[j])));
+			assert(insert_no_resize(&new_ht, &key, &value));
 		}
 	}
 
@@ -439,12 +463,15 @@ static bool resize(htable_t *ht, size_t new_size)
 	for (size_t i = 0; i < BUCKET_SIZE; i++) {
 		if (is_empty(ht->stash->values[i]))
 			break;
+                key = ht->stash->keys[i];
+                value = get_value(ht->stash->values[i]);
+
 		/* see above wall of text */
-		assert(insert_no_resize(&new_ht, ht->stash->keys[i],
-					get_value(ht->stash->values[i])));
+                assert(insert_no_resize(&new_ht, &key, &value));
 	}
 
 	/* update the head with the new tables  */
+        /* TODO: use htable_destroy common code here */
 	free(ht->table1);
 	free(ht->table2);
 	free(ht->stash);
@@ -457,16 +484,15 @@ bool htable_init(htable_t *ht, size_t nbuckets)
 	ht->size = 0;
 	ht->entries = 0;
 	ht->table1 = NULL;
+	ht->table2 = NULL;
 	ht->stash = NULL;
 
 	/*
-	 * size corresponds to the actual number of bucket_t's that will be
+	 * tmp_size corresponds to the actual number of bucket_t's that will be
 	 * allocated in each of the two tables. We'll actually set ht->size to
 	 * this after (if) do_allocs suceeds
 	 */
 	size_t tmp_size = (nbuckets/(BUCKET_SIZE * 2) + 1);
-
-	printf("htable_init: allocating %zu buckets.\n", tmp_size);
 	
 	/*
 	 * because the hash functions we're using generate 32 bit hashes, we can't
@@ -508,16 +534,16 @@ void htable_destroy(htable_t *ht)
 bool htable_insert(htable_t *ht, uint64_t key,
 		   void const *value)
 {
-	//printf("htable_insert: inserting key %" PRIu64 " .\n", key);
-	if (insert_no_resize(ht, key, value))
+        uint64_t k = key;
+        const void* v = value;
+	if (insert_no_resize(ht, &k, &v))
 		return true;
 	resize(ht, ht->size * 2);
-	return insert_no_resize(ht, key, value);
+	return insert_no_resize(ht, &k, &v);
 }
 
 bool htable_exists(htable_t const *ht, uint64_t key)
 {
-	//printf("htable_insert: looking for key %" PRIu64 " .\n", key);
 	size_t hash = hash1(ht, key) % ht->size;
 	if (bucket_contains(&(ht->table1[hash]), key))
 		return true;
