@@ -81,4 +81,12 @@ struct htable {
 };
 typedef struct htable htable_t;
 
+/* btree types */
+struct btree_node;
+struct btree {
+        size_t entries;
+        struct btree_node *root;
+};
+typedef struct btree btree_t;
+
 #endif /* STRUCT_TYPES_H */
