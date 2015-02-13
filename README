@@ -4,4 +4,5 @@ In its current state, this library is not ready for real use. It needs
 further testing and optimization, the doccumentation needs to be cleaned
 up, and more structures need to be added.
 
-That being said, in its current state, it should still be usable.
+That being said, the current test suite has fairly good coverage, and
+all tests are passing as of eaa45cbf9f715479bf9c7f84115bc5ffb3380cd.
