@@ -1,0 +1,15 @@
+tests:
+	The current testing is pretty good, but in general I think everything
+	could use a few more tests that try as hard as they can to break the
+	testee.
+
+unfinished structures:
+	btree
+
+future structures:
+        red-black tree
+	bloom filter
+	vetor
+	skip list
+	string
+	heap
