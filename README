@@ -1,0 +1,7 @@
+libstruct, a data structure library for C/POSIX
+
+In its current state, this library is not ready for real use. It needs
+further testing and optimization, the doccumentation needs to be cleaned
+up, and more structures need to be added.
+
+That being said, in its current state, it should still be usable.
