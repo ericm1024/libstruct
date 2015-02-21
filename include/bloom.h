@@ -25,16 +25,43 @@
 
 #include "libstruct.h"
 
-/* declare */
+/**
+ * \brief Declare a bloom filter.
+ * \param name  (token) name of the filter to declare
+ * \param n  Expected number of keys to be inserted into the filter.
+ * \detail This does not initialize the structure. That is done by
+ * bloom_init.
+ */
 #define BLOOM_FILTER(name, n) \
-	bloom_t name = (bloom_t){n, 0, 0
+    bloom_t name = (bloom_t){(n), 0, 0, NULL, NULL};
 
-/* init */
+/**
+ * \brief Initialize a bloom filter.
+ * \param bf  The filter to initialize.
+ * \return 0 on sucess, 1 if memory allocation failed.
+ */
+extern int bloom_init(bloom_t *bf);
 
-/* destroy */
+/**
+ * \brief Destroy a bloom filter.
+ * \param bf  The bloom filter to initialize.
+ * \detail Frees all memory associated with @bf
+ */
+extern void bloom_destroy(bloom_t *bf);
 
-/* insert */
+/**
+ * \brief Insert a key into the filter.
+ * \param bf  The bloom filter to insert into.
+ * \param key  The key to insert.
+ */
+extern void bloom_insert(bloom_t *bf, uint64_t key);
 
-/* query */
+/**
+ * \brief Query a bloom filter for the existence of a key.
+ * \param bf  The bloom filter to query.
+ * \param key  The key to query for.
+ * \return 0 if the key probably exists, 1 if it definitely does not. 
+ */
+extern int bloom_query(bloom_t *bf, uint64_t key);
 
 #endif /* STRUCT_BLOOM_H */
