@@ -89,4 +89,14 @@ struct btree {
 };
 typedef struct btree btree_t;
 
+/* bloom filter */
+struct bloom {
+	size_t n; /* target number of elements */
+	size_t bsize; /* size of bits array */
+	size_t ssize; /* size of seeds array */
+	int *bits;
+	uint64_t *seeds;
+};
+typedef struct bloom bloom_t;
+
 #endif /* STRUCT_TYPES_H */
