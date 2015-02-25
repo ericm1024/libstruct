@@ -1,122 +1,152 @@
-/* Eric Mueller
- * flist.c
- * December 2014
+/*
+ * Copyright 2014 Eric Mueller
  *
- * Implementation of a forward list (singly linked).
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * \author Eric Mueller
+ * 
+ * \file bloom.c
+ *
+ * \brief Implementation of a bloom filter.
  */
 
-#include "flist.h"
+#include "bloom.h"
+#include "mtwist-1.5/mtwist.h"
+#include "fasthash.h"
+#include <stdlib.h>
+#include <limits.h> /* CHAR_BIT */
+#include <math.h>
 #include <assert.h>
 
-static inline void link3(struct flist *a, struct flist *b, struct flist *c)
+#define BITS_PER_LONG (CHAR_BIT * sizeof(long))
+
+/*
+ * right shift a bit array index by this to get the index within the long
+ * array
+ */ 
+#define BINDEX_SHIFT (BITS_PER_LONG == 64 ? 6 : 5)
+/*
+ * mask a bit array index with this to get the index of the bit within
+ * a long
+ */ 
+#define BINDEX_MASK ((1 << BINDEX_SHIFT) - 1)
+/*
+ * convert a bit array index into a long array index
+ */ 
+#define BINDEX_TO_INDEX(bi) (bi >> BINDEX_SHIFT)
+/*
+ * The bitwise AND of this mask with the long containing the given bit
+ * will flag the bit, the bitwise OR will set the bit.
+ */ 
+#define BINDEX_TO_BITMASK(bi) (1 << (bi & BINDEX_MASK))
+
+static inline void set_bit(bloom_t *bf, size_t biti)
 {
-	if ( a )
-		a->next = b;
-	if ( b )
-		b->next = c;
+	size_t i = BINDEX_TO_INDEX(biti);
+	int mask = BINDEX_TO_BITMASK(biti);
+	bf->bits[i] |= mask;
 }
 
-static inline int is_empty(struct flist_head *hd)
+static inline int get_bit(bloom_t *bf, size_t biti)
 {
-	return hd->length == 0 && hd->first == NULL ? 1 : 0;
+	size_t i = BINDEX_TO_INDEX(biti);
+	int mask = BINDEX_TO_BITMASK(biti);
+	return !!(bf->bits[i] & mask);
 }
 
-static inline struct flist *get_last(struct flist_head *hd)
+int bloom_init(bloom_t *bf)
 {
-	struct flist *last;
-	for (last = hd->first; last->next != NULL; last = last->next) {}
-	return last;
-}
-
-void flist_insert_after(struct flist_head *hd, struct flist *after,
-			struct flist *insertee)
-{
-	assert(hd);
-	assert(insertee);
+	/*
+	 * Here we need to pick good values for the size of the filter table
+	 * and the number of hash functions. The Wikipedia article tells
+	 * us that the optimial number of bits for a desired false probability
+	 * p is
+	 *         m = - (n* ln(p))/(ln(2)^2).
+	 * It also tells us that the optimal number of hash functions k is
+	 * given by
+	 *        k = (m/n)ln(2).
+	 * We'll do all of this computation with floats before we round off
+	 * at the end.
+	 *        
+	 * (TODO find a more reliable source for these formulas)
+	 * Source:
+	 * http://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions
+	 */
 	
-	if (after)
-		link3(after, insertee, after->next);
-	else {
-		insertee->next = hd->first;
-		hd->first = insertee;
+	double p = bf->p;
+	if (p < BLOOM_P_MIN || p > BLOOM_P_MAX) {
+		p = BLOOM_P_DEFAULT;
+		bf->p = p;
 	}
-		
-	hd->length++;
+	double n = (double)bf->n;
+	double m = -(n * log(p))/(M_LN2*M_LN2);
+	double k = (m/n)*M_LN2;
+	
+	/*
+	 * m is the number of bits we want, but since we're allocating
+	 * in chunks of size long, we want bf->bsize to be the number
+	 * of entries in the array, so we have to convert. We add 1
+	 * because the divide will always round down.
+	 */
+	bf->bsize = (size_t)(lrint(m)/(BITS_PER_LONG) + 1);
+	bf->nbits = bf->bsize * BITS_PER_LONG;
+	bf->nhash = (size_t)lrint(k);
+
+	/* try to alocate both arrays */
+	bf->bits = (long*)malloc(sizeof(long)*bf->bsize);
+	if (!bf->bits)
+		return 1;
+	
+	bf->seeds = (uint64_t*)malloc(sizeof(uint64_t)*bf->nhash);
+	if (!bf->seeds) {
+		free(bf->bits);
+		return 1;
+	}
+
+	/* initialize the Mersenne-Twise PRNG if necessary */
+	mt_state *s = mt_getstate();
+	if (!s->initialized)
+		mt_goodseed();
+
+	/* generate seeds for the hash functions */
+	for (size_t i = 0; i < bf->nhash; i++)
+		bf->seeds[i] = mt_llrand();
+	return 0;
 }
 
-void flist_push_front(struct flist_head *hd, struct flist *insertee)
+void bloom_destroy(bloom_t *bf)
 {
-	assert(hd);
-	assert(insertee);
-
-	link3(NULL, insertee, hd->first);
-	hd->first = insertee;
-	hd->length++;
+	free(bf->bits);
+	free(bf->seeds);
+	bf->bits = NULL;
+	bf->seeds = NULL;
 }
 
-struct flist *flist_pop_front(struct flist_head *hd)
+void bloom_insert(bloom_t *bf, uint64_t key)
 {
-	assert(hd);
-
-	struct flist *first = hd->first;
-	if ( first )
-		hd->first = first->next;
-	hd->length--;
-	return first;
+	for (size_t i = 0; i < bf->nhash; i++) {
+		uint64_t hash = fasthash64(&key, sizeof(key), bf->seeds[i]);
+		set_bit(bf, hash % bf->nbits);
+	}
 }
 
-void flist_splice(struct flist_head *hd, struct flist *after,
-		  struct flist_head *splicee)
+int bloom_query(bloom_t *bf, uint64_t key)
 {
-	assert(hd);
-	assert(after);
-	assert(splicee);
-  
-	if ( is_empty(splicee) )
-		return;
-
-	struct flist *last = get_last(splicee);
-	last->next = after->next;
-	after->next = splicee->first;
-	hd->length += splicee->length;
-
-	/* invalidate splicee */
-	splicee->first = NULL;
-	splicee->length = 0;
-}
-
-void flist_for_each(struct flist_head *hd, void (*f)(void *data),
-		    ptrdiff_t offset)
-{
-  assert(hd);
-  assert(f);
-  assert(offset >= 0);
-
-  for (struct flist *i = hd->first; i != NULL; ) { 
-	  /* We need to grab the next element in the list *before* we call the
-	   * function on the current element because the function could
-	   * invalidate the current element, in which case itterating with
-	   * i = i->next would cause undefined behavior. An example of such a
-	   * function is free.
-	   */ 
-	  struct flist *next = i->next;
-	  f( (void *)((char *)i - offset) );
-	  i = next;
-  }
-}
-
-void flist_for_each_range(struct flist_head *hd, void (*f)(void *data),
-			  ptrdiff_t offset, struct flist *first,
-			  struct flist *last)
-{
-  assert(hd);
-  assert(first);
-  assert(f);
-
-  for (struct flist *i = first; i != last && i != NULL; ) {
-	  /* see comment in flist_for_each */ 
-	  struct flist *next = i->next;
-	  f( (void *)((char *)i - offset) );
-	  i = next;
-  }
+	for (size_t i = 0; i < bf->nhash; i++) {
+		uint64_t hash = fasthash64(&key, sizeof(key), bf->seeds[i]);
+		if (!get_bit(bf, hash % bf->nbits))
+			return 1;
+	}
+	return 0;
 }

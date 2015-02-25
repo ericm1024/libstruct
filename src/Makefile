@@ -63,3 +63,6 @@ murmurhash.o: murmurhash.c murmurhash.h
 
 btree.o: btree.c btree.h libstruct.h
 	$(CC) $(CFLAGS) -c $<
+
+bloom.o: bloom.c bloom.h libstruct.h fasthash.h
+	$(CC) $(CFLAGS) -c $<

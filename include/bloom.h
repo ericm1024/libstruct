@@ -27,15 +27,25 @@
 
 #include "libstruct.h"
 
+/*
+ * max and min allowable target false positive rates. Admitedly somewhat
+ * arbitrary, but sue me.
+ */
+#define BLOOM_P_MIN (1e-5)
+#define BLOOM_P_MAX (5e-2)
+#define BLOOM_P_DEFAULT (5e-3)
+
 /**
  * \brief Declare a bloom filter.
  * \param name  (token) name of the filter to declare
  * \param n  Expected number of keys to be inserted into the filter.
+ * \param p  Target false probability. Must be between BLOOM_P_MIN and
+ * BLOOM_P_MAX. BLOOM_P_DEFAULT is a good choice if you aren't sure.
  * \detail This does not initialize the structure. That is done by
  * bloom_init.
  */
-#define BLOOM_FILTER(name, n) \
-    bloom_t name = (bloom_t){(n), 0, 0, NULL, NULL};
+#define BLOOM_FILTER(name, n, p)                           \
+	bloom_t name = (bloom_t){NULL, NULL, n, 0, 0, p, 0};
 
 /**
  * \brief Initialize a bloom filter.

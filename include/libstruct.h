@@ -91,11 +91,13 @@ typedef struct btree btree_t;
 
 /* bloom filter */
 struct bloom {
+	long *bits; /* bits array for filter */
+	uint64_t *seeds; /* seeds for */
 	size_t n; /* target number of elements */
 	size_t bsize; /* size of bits array */
-	size_t ssize; /* size of seeds array */
-	int *bits;
-	uint64_t *seeds;
+	size_t nhash; /* number of hash functions, also size of seeds array */
+	double p; /* target false probability */
+	size_t nbits; /* actual number of bits in the array */
 };
 typedef struct bloom bloom_t;
 
