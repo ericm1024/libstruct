@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /**
  * \file bloom.h 
  *
@@ -27,12 +26,11 @@
 
 #include "libstruct.h"
 
-/*
- * max and min allowable target false positive rates. Admitedly somewhat
- * arbitrary, but sue me.
- */
+/*! lower bound on allowable false positive probability parameter */
 #define BLOOM_P_MIN (1e-5)
+/*! upper bound on allowable false positive probability parameter */
 #define BLOOM_P_MAX (5e-2)
+/*! convenience macro for a reasonable default false positive probability */
 #define BLOOM_P_DEFAULT (5e-3)
 
 /**
@@ -45,7 +43,7 @@
  * bloom_init.
  */
 #define BLOOM_FILTER(name, n, p)                           \
-	bloom_t name = (bloom_t){NULL, NULL, n, 0, 0, p, 0};
+	bloom_t name = (bloom_t){NULL, NULL, (n), 0, 0, (p), 0};
 
 /**
  * \brief Initialize a bloom filter.
