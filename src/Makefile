@@ -1,10 +1,12 @@
-CC = gcc
+CC = clang
 OPTFLAGS = -O0
-INCPATH = ../include
-CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I $(INCPATH)
-TARGETS = flist_test list_test avl_test htable_test
+INCLUDE = ../include
+RNG = ./pcg-c-master
+CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
+TARGETS = flist_test list_test avl_test htable_test bloom_test
 
-vpath %.h $(INCPATH)
+vpath %.h $(INCLUDE)
+vpath %.h $(RNG)/include
 
 all: $(TARGETS)
 
@@ -15,6 +17,8 @@ test: $(TARGETS)
 	valgrind --leak-check=full ./flist_test
 	valgrind --leak-check=full ./list_test
 	valgrind --leak-check=full ./avl_test
+	valgrind --leak-check=full ./htable_test
+	valgrind --leak-check=full ./bloom_test
 
 flist_test: flist_test.o flist.o
 	$(CC) $(CFLAGS) -o $@ $^
@@ -27,6 +31,9 @@ avl_test: avl_test.o avl_tree.o test.o
 
 htable_test: htable_test.o htable.o test.o fasthash.o murmurhash.o
 	$(CC) $(CFLAGS) -lm -o $@ $^
+
+bloom_test: bloom_test.o bloom.o test.o fasthash.o
+	$(CC) $(CFLAGS) -lm -o $@ $^ $(RNG)/src/libpcg_random.a
 
 flist_test.o: flist_test.c flist.h libstruct.h
 	$(CC) $(CFLAGS) -c $<
@@ -65,4 +72,7 @@ btree.o: btree.c btree.h libstruct.h
 	$(CC) $(CFLAGS) -c $<
 
 bloom.o: bloom.c bloom.h libstruct.h fasthash.h
+	$(CC) $(CFLAGS) -c $<
+
+bloom_test.o: bloom_test.c bloom.h libstruct.h test.h
 	$(CC) $(CFLAGS) -c $<
