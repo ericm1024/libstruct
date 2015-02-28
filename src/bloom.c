@@ -22,12 +22,17 @@
  */
 
 #include "bloom.h"
-#include "mtwist-1.5/mtwist.h"
 #include "fasthash.h"
+#include "pcg_variants.h"
 #include <stdlib.h>
 #include <limits.h> /* CHAR_BIT */
 #include <math.h>
 #include <assert.h>
+#include <fcntl.h> /* open */
+#include <unistd.h> /* read */
+#include <stdio.h>
+
+#define RANDOM "/dev/urandom"
 
 #define BITS_PER_LONG (CHAR_BIT * sizeof(long))
 
@@ -65,8 +70,37 @@ static inline int get_bit(bloom_t *bf, size_t biti)
 	return !!(bf->bits[i] & mask);
 }
 
+/* never look at this function its terrible */
+static int fallback_seed_rng()
+{
+	pcg128_t seed = (pcg128_t)(uintptr_t)&seed; /* ASLR. not my idea */
+	pcg64_srandom(seed, seed); /* ugh */
+	return 0;
+}
+
+/* TODO: do something reasonable if reading /dev/random fails */
+static int seed_rng()
+{
+	int fd;
+	pcg128_t seeds[2];
+	int size;
+	fd = open(RANDOM, O_RDONLY);
+	if (fd < 0)
+		return fallback_seed_rng();
+
+	size = read(fd, &seeds, sizeof(seeds));
+	if (size < (int)sizeof(seeds))
+		return fallback_seed_rng();;
+	
+	pcg64_srandom(seeds[0], seeds[1]);
+	return 0;
+}
+
 int bloom_init(bloom_t *bf)
 {
+	if (seed_rng() != 0)
+		return 1;
+	
 	/*
 	 * Here we need to pick good values for the size of the filter table
 	 * and the number of hash functions. The Wikipedia article tells
@@ -114,14 +148,9 @@ int bloom_init(bloom_t *bf)
 		return 1;
 	}
 
-	/* initialize the Mersenne-Twise PRNG if necessary */
-	mt_state *s = mt_getstate();
-	if (!s->initialized)
-		mt_goodseed();
-
 	/* generate seeds for the hash functions */
 	for (size_t i = 0; i < bf->nhash; i++)
-		bf->seeds[i] = mt_llrand();
+		bf->seeds[i] = pcg64_random();
 	return 0;
 }
 
