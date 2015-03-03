@@ -5,14 +5,27 @@ tests:
 
 bugs:
 	hash table implementation does not shrink when it can.
-	linked list is failing a test
+	linked list is failing a test.
 
-unfinished structures:
+in progress:
 	btree
-
-future structures:
         red-black tree
+	
+future structures:
 	vetor
 	skip list
 	string
 	heap
+	counting filter
+
+housekeeping:
+	- move all the types from libstruct.h to their respective header
+	  files, that was a mistake to begin with
+	- give comprehensive doccumentation of each interface and important
+	  implementation details at top of header files. Functions are
+	  individually well documented, but the 'big picture' is missing
+	  in most if not all headers.
+	- clean up make files, put variables in top level make file, use
+	  seperate build directory
+	- write a make target that actually compiles the code as a shared
+	  library (i.e. make the damn thing usable)
