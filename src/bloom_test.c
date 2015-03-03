@@ -22,6 +22,7 @@
 
 #include "test.h"
 #include "bloom.h"
+#include "pcg_variants.h"
 #include <stdlib.h>
 #include <time.h>
 
@@ -60,7 +61,7 @@ void test_insert()
 	bloom_init(&b);
 	uint64_t test_data[TEST_FILTER_SIZE];
 	for (size_t i = 0; i < TEST_FILTER_SIZE; i++) {
-		test_data[i] = (uint64_t)rand() | (uint64_t)rand() << 32;
+		test_data[i] = pcg64_random();
 		bloom_insert(&b, test_data[i]);
 	}
 	
@@ -70,6 +71,33 @@ void test_insert()
 	bloom_destroy(&b);
 }
 
+void test_false_positive()
+{
+	BLOOM_FILTER(b, TEST_FILTER_SIZE, BLOOM_P_DEFAULT);
+	bloom_init(&b);
+	for (size_t i = 0; i < TEST_FILTER_SIZE; i++)
+		bloom_insert(&b, pcg64_random());
+
+	size_t false_pos = 0;
+	for (size_t i= 0; i < TEST_FILTER_SIZE; i++)
+		if (bloom_query(&b, pcg64_random()) == 0)
+			false_pos++;
+	
+        double falsep = ((double)false_pos)/((double)TEST_FILTER_SIZE);
+	ASSERT_TRUE(falsep < BLOOM_P_DEFAULT*1.1,
+		    "got too many false positives\n");
+	bloom_destroy(&b);
+}
+
+void test_empty_query()
+{
+	BLOOM_FILTER(b, TEST_FILTER_SIZE, BLOOM_P_DEFAULT);
+	bloom_init(&b);
+	for (size_t i = 0; i < TEST_FILTER_SIZE; i++)
+		ASSERT_TRUE(bloom_query(&b, pcg64_random()) == 1,
+			    "query returned true for empty filter\n");
+	bloom_destroy(&b);
+}
 
 
 int main(void) 
@@ -77,6 +105,8 @@ int main(void)
 	srand(time(NULL));
 	REGISTER_TEST(test_init_destroy);
 	REGISTER_TEST(test_insert);
+	REGISTER_TEST(test_false_positive);
+	REGISTER_TEST(test_empty_query);
 	return run_all_tests();
 }
 
