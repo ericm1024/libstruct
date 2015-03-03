@@ -3,12 +3,15 @@ tests:
 	could use a few more tests that try as hard as they can to break the
 	testee.
 
+bugs:
+	hash table implementation does not shrink when it can.
+	linked list is failing a test
+
 unfinished structures:
 	btree
 
 future structures:
         red-black tree
-	bloom filter
 	vetor
 	skip list
 	string
