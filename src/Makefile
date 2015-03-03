@@ -15,10 +15,10 @@ clean:
 
 test: $(TARGETS)
 	valgrind --leak-check=full ./flist_test
-	valgrind --leak-check=full ./list_test
+#	valgrind --leak-check=full ./list_test
 	valgrind --leak-check=full ./avl_test
 	valgrind --leak-check=full ./htable_test
-	valgrind --leak-check=full ./bloom_test
+	valgrind --leak-check=full --max-stackframe=20000000 ./bloom_test
 
 flist_test: flist_test.o flist.o
 	$(CC) $(CFLAGS) -o $@ $^
