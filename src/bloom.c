@@ -31,6 +31,7 @@
 #include <fcntl.h> /* open */
 #include <unistd.h> /* read */
 #include <stdio.h>
+#include <string.h> /* memset */
 
 #define RANDOM "/dev/urandom"
 
@@ -54,19 +55,19 @@
  * The bitwise AND of this mask with the long containing the given bit
  * will flag the bit, the bitwise OR will set the bit.
  */ 
-#define BINDEX_TO_BITMASK(bi) (1 << (bi & BINDEX_MASK))
+#define BINDEX_TO_BITMASK(bi) (1L << (bi & BINDEX_MASK))
 
 static inline void set_bit(bloom_t *bf, size_t biti)
 {
 	size_t i = BINDEX_TO_INDEX(biti);
-	int mask = BINDEX_TO_BITMASK(biti);
+	long mask = BINDEX_TO_BITMASK(biti);
 	bf->bits[i] |= mask;
 }
 
 static inline int get_bit(bloom_t *bf, size_t biti)
 {
 	size_t i = BINDEX_TO_INDEX(biti);
-	int mask = BINDEX_TO_BITMASK(biti);
+	long mask = BINDEX_TO_BITMASK(biti);
 	return !!(bf->bits[i] & mask);
 }
 
@@ -116,13 +117,19 @@ int bloom_init(bloom_t *bf)
 	 * (TODO find a more reliable source for these formulas)
 	 * Source:
 	 * http://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions
+	 *
+	 * http://corte.si/%2Fposts/code/bloom-filter-rules-of-thumb/index.html
 	 */
 	
 	double p = bf->p;
-	if (p < BLOOM_P_MIN || p > BLOOM_P_MAX) {
-		p = BLOOM_P_DEFAULT;
+	if (p < BLOOM_P_MIN) {
+		p = BLOOM_P_MIN;
+		bf->p = p;
+	} else if (p > BLOOM_P_MAX) {
+		p = BLOOM_P_MAX;
 		bf->p = p;
 	}
+	
 	double n = (double)bf->n;
 	double m = -(n * log(p))/(M_LN2*M_LN2);
 	double k = (m/n)*M_LN2;
@@ -135,7 +142,7 @@ int bloom_init(bloom_t *bf)
 	 */
 	bf->bsize = (size_t)(lrint(m)/(BITS_PER_LONG) + 1);
 	bf->nbits = bf->bsize * BITS_PER_LONG;
-	bf->nhash = (size_t)lrint(k);
+	bf->nhash = (size_t)k;
 
 	/* try to alocate both arrays */
 	bf->bits = (long*)malloc(sizeof(long)*bf->bsize);
@@ -148,6 +155,8 @@ int bloom_init(bloom_t *bf)
 		return 1;
 	}
 
+	memset(bf->bits, 0, sizeof(long)*bf->bsize);
+	
 	/* generate seeds for the hash functions */
 	for (size_t i = 0; i < bf->nhash; i++)
 		bf->seeds[i] = pcg64_random();
