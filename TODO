@@ -29,3 +29,8 @@ housekeeping:
 	  seperate build directory
 	- write a make target that actually compiles the code as a shared
 	  library (i.e. make the damn thing usable)
+
+refactoring:
+	- change all integer return types that could be bools to bools.
+	- do a once over of all old code, particularly avl_tree. There
+	  is some messy stuff in there.
