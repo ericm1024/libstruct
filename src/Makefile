@@ -76,3 +76,6 @@ bloom.o: bloom.c bloom.h libstruct.h fasthash.h
 
 bloom_test.o: bloom_test.c bloom.h libstruct.h test.h
 	$(CC) $(CFLAGS) -c $<
+
+rbtree.o: rbtree.c rbtree.h libstruct.h
+	$(CC) $(CFLAGS) -c $<

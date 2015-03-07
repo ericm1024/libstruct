@@ -101,4 +101,19 @@ struct bloom {
 };
 typedef struct bloom bloom_t;
 
+struct rb_node {
+	struct rb_node *parent;
+	struct rb_node *chld[2];
+};
+typedef struct rb_node rb_node_t;
+
+typedef long (*rb_cmp_t)(void *lhs, void *rhs);
+struct rb_head {
+	rb_node_t *root;
+	size_t offset; /* offset of rb_nodes in enclosing structs */
+	rb_cmp_t cmp;
+	size_t nnodes; /* number of nodes in the tree */
+};
+typedef struct rb_head rb_head_t;
+	
 #endif /* STRUCT_TYPES_H */
