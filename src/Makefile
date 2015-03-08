@@ -35,6 +35,9 @@ htable_test: htable_test.o htable.o test.o fasthash.o murmurhash.o
 bloom_test: bloom_test.o bloom.o test.o fasthash.o
 	$(CC) $(CFLAGS) -lm -o $@ $^ $(RNG)/src/libpcg_random.a
 
+rbtree_test: rbtree_test.o rbtree.o test.o
+	$(CC) $(CFLAGS) -lm -o $@ $^
+
 flist_test.o: flist_test.c flist.h libstruct.h
 	$(CC) $(CFLAGS) -c $<
 
@@ -74,8 +77,11 @@ btree.o: btree.c btree.h libstruct.h
 bloom.o: bloom.c bloom.h libstruct.h fasthash.h
 	$(CC) $(CFLAGS) -c $<
 
-bloom_test.o: bloom_test.c bloom.h libstruct.h test.h
+bloom_test.o: bloom_test.c bloom.c bloom.h libstruct.h test.h
 	$(CC) $(CFLAGS) -c $<
 
 rbtree.o: rbtree.c rbtree.h libstruct.h
+	$(CC) $(CFLAGS) -c $<
+
+rbtree_test.o: rbtree_test.c rbtree.c rbtree.h test.h
 	$(CC) $(CFLAGS) -c $<

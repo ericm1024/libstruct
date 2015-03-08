@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 /*
  * macros:
@@ -58,6 +59,43 @@
 	(n)->parent = (rb_node_t*)((uintptr_t)(p) \
 				   | ((uintptr_t)(n)->parent & 1UL))
 #define GET_PARENT(n) ((rb_node_t*)((uintptr_t)(n)->parent & ~1UL))
+#define GET_COLOR(n) ((unsigned long)((uintptr_t)(n)->parent & 1UL))
+
+static inline void link_parent_child(rb_head_t *hd,
+				     rb_node_t *parent,
+				     rb_node_t *child,
+				     unsigned long dir)
+{
+	if (parent) {
+		parent->chld[dir] = child;
+	} else {
+		hd->root = child;
+	}
+	if (child)
+		SET_PARENT(child, parent);
+}
+
+static inline void make_black(rb_node_t *n)
+{
+	if (n)
+		MAKE_BLACK(n);
+}
+
+static inline unsigned long is_black(rb_node_t *n)
+{
+	return !n || IS_BLACK(n);
+}
+
+static inline unsigned long is_red(rb_node_t *n)
+{
+	return n && IS_RED(n);
+}
+
+static inline void set_color(rb_node_t *n, unsigned long color)
+{
+	n->parent = (rb_node_t*)((uintptr_t)n->parent & ~1UL);
+	n->parent = (rb_node_t*)((uintptr_t)n->parent | (color & 1));
+}
 
 /*
  * helpers:
@@ -78,7 +116,7 @@ static inline unsigned long cmp_to_index(long cmp)
 	 * negative --> less --> left child --> return 0
 	 * positive --> greater --> right child --> return 1
          */
-	return (~cmp >> (sizeof(cmp) * CHAR_BIT - 1)) & 1UL;
+	return (~cmp >> (sizeof(cmp) * CHAR_BIT - 1)) & 1L;
 }
 
 static inline rb_node_t *data_to_node(rb_head_t *hd, void *data)
@@ -102,20 +140,12 @@ static inline rb_node_t *init_node(rb_node_t *n)
 
 /*
  * get the index of a node in its parent.
- * DO NOT CALL THIS ON THE ROOT NODE. DOES NOT CHECK FOR
- * NULL PARENT
  */
 static inline unsigned long get_cradle(rb_node_t *n)
 {
-	return GET_PARENT(n)->chld[1] == n;
+	rb_node_t *p = GET_PARENT(n);
+	return p && p->chld[1] == n;
 }
-
-/* unused as of right now
-static inline bool is_right_child(rb_node_t *n, unsigned long right)
-{
-	return GET_PARENT(n)->chld[right] == n;
-}
-*/
 
 /*
  * swap two nodes
@@ -123,7 +153,7 @@ static inline bool is_right_child(rb_node_t *n, unsigned long right)
  *     - @high is higher up in the tree than low
  *     - @high has two non-null children
  */ 
-static void rb_swap(rb_node_t *high, rb_node_t *low)
+static void rb_swap(rb_head_t *hd, rb_node_t *high, rb_node_t *low)
 {	
 	rb_node_t *tmp;
 	unsigned long right;
@@ -142,6 +172,9 @@ static void rb_swap(rb_node_t *high, rb_node_t *low)
 		right = get_cradle(high);
 		tmp = GET_PARENT(high);
 		tmp->chld[right] = low;
+	} else {
+		hd->root = low;
+		SET_PARENT(low, NULL);
 	}
 
 	/* special case where low is high's child */
@@ -185,17 +218,22 @@ static void rb_swap(rb_node_t *high, rb_node_t *low)
  *   / \             / \
  *  A   C           C   E
  */ 
-static rb_node_t *rb_rotate_single(rb_node_t *root, unsigned long right)
+static rb_node_t *rb_rotate_single(rb_head_t *hd,
+				   rb_node_t *root,
+				   unsigned long right)
 {
+	printf("single rotate.\n");
 	unsigned long left = 1 - right;
-	rb_node_t *child = root->chld[left];;
-	rb_node_t *parent = GET_PARENT(root);;
+	rb_node_t *child = root->chld[left];
+	rb_node_t *parent = GET_PARENT(root);
 
 	/* update root and child's parents */
 	SET_PARENT(child, parent);
 	SET_PARENT(root, child);
 	if (parent)
 		parent->chld[get_cradle(root)] = child;
+	else
+		hd->root = child;
 	
 	/* update root's left child */
 	root->chld[left] = child->chld[right];
@@ -220,11 +258,23 @@ static rb_node_t *rb_rotate_single(rb_node_t *root, unsigned long right)
  *    / \
  *   C   E
  */ 
-static rb_node_t *rb_rotate_double(rb_node_t *root, unsigned long right)
+static rb_node_t *rb_rotate_double(rb_head_t *hd,
+				   rb_node_t *root,
+				   unsigned long right)
 {
+	printf("double rotate.\n");
 	unsigned long left = 1 - right;
-	rb_rotate_single(root->chld[left], left);
-	return rb_rotate_single(root, right);
+	rb_rotate_single(hd, root->chld[left], left);
+	return rb_rotate_single(hd, root, right);
+}
+
+static inline rb_node_t *closest_child(rb_node_t *n, unsigned long right)
+{
+	rb_node_t *i;
+	unsigned long left = 1 - right;
+	for (i = n->chld[right]; i->chld[left]; i = i->chld[left])
+		;
+	return i;
 }
 
 void rb_insert(rb_head_t *hd, void *new)
@@ -265,12 +315,13 @@ void rb_insert(rb_head_t *hd, void *new)
 	}
 	
 	/* do the insertion */
-	path->chld[i] = n;
 	SET_PARENT(n, path);
+	path->chld[i] = n;
 	hd->nnodes++;
 
 	/* rebalance */
 	while(path && IS_RED(path)) {
+		printf("insert: rebalancing.\n");
 		gparent = GET_PARENT(path);
 		if (!gparent)
 			break;
@@ -278,12 +329,12 @@ void rb_insert(rb_head_t *hd, void *new)
 			? gparent->chld[LEFT]
 			: gparent->chld[RIGHT];
 		
-		if (!aunt || IS_BLACK(aunt)) { /* inserted into 3 node */
+		if (is_black(aunt)) { /* inserted into 3 node */
 			/* last 2 traversed directions were oposites */
 			if ((stack & 1) ^ ((stack >> 1) & 1))
-				rb_rotate_double(gparent, stack & 1);
+				rb_rotate_double(hd, gparent, stack & 1);
 			else
-				rb_rotate_single(gparent, stack & 1);
+				rb_rotate_single(hd, gparent, ~stack & 1);
 			break;
 		} else { /* inserted into 4 node */
 			MAKE_BLACK(path);
@@ -300,5 +351,79 @@ void rb_insert(rb_head_t *hd, void *new)
 
 void rb_erase(rb_head_t *hd, void *victim)
 {
+	rb_node_t *n = data_to_node(hd, victim);
+	rb_node_t *child;
+	rb_node_t *parent;
+	rb_node_t *sibling;
+	rb_node_t *rniece;
+	rb_node_t *lniece;
+	unsigned long left;
+	unsigned long right;
+	unsigned long color;
 	
+	hd->nnodes--;
+		
+	/* if victim is a body node, find sucessor and swap */
+	if (n->chld[RIGHT] && n->chld[LEFT])
+		rb_swap(hd, n, closest_child(n, RIGHT));
+	
+	/* replace n with its only child */
+	child = n->chld[n->chld[LEFT] ? LEFT : RIGHT];
+	parent = GET_PARENT(n);
+	link_parent_child(hd, parent, child, get_cradle(n));
+
+	/* If we don't have a double black, we're done */
+	if (!(is_black(n) && is_black(child))) {
+		make_black(child);
+		return;
+	}
+
+	/* else color it black and prepare for some fun... */
+	make_black(child);
+	for (;;) {
+		right = parent->chld[RIGHT] == child ? RIGHT : LEFT;
+		left = 1 - right;
+		
+		/* case reduction */
+		if (IS_RED(parent->chld[left]))
+			parent = rb_rotate_single(hd, parent, right);
+		
+		sibling = parent->chld[left];
+		rniece = sibling->chld[right];
+		lniece = sibling->chld[left];
+
+		if (IS_BLACK(rniece) && IS_BLACK(lniece)) {
+			MAKE_RED(sibling);
+			if (IS_RED(parent)) {
+				MAKE_BLACK(parent);
+				return;
+			}
+		} else {
+			color = GET_COLOR(parent);
+			if (IS_RED(lniece))
+				parent = rb_rotate_single(hd, parent, right);
+			else
+				parent = rb_rotate_double(hd, parent, right);
+			set_color(parent, color);
+			return;
+		}
+		parent = GET_PARENT(parent);
+	}
+	make_black(hd->root);
+}
+
+void *rb_find(rb_head_t *hd, void *findee)
+{
+	rb_node_t *n = hd->root;
+	long cmp;
+	if (!findee)
+		return NULL;
+	
+	while(n) {
+		cmp = hd->cmp(findee, node_to_data(hd, n));
+		if (cmp == 0)
+			return node_to_data(hd, n);
+		n = n->chld[cmp_to_index(cmp)];
+	}
+	return NULL;
 }
