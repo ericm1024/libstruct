@@ -81,20 +81,13 @@ unsigned long valid_node(rb_head_t *hd, rb_node_t *n)
 		black = 1;
 	}
 
+	/* check for black violations */
 	unsigned long right_black_height = valid_node(hd, n->chld[0]);
 	unsigned long left_black_height = valid_node(hd, n->chld[1]);
-
 	ASSERT_TRUE(right_black_height == left_black_height,
 		    "valid_node: black violation.\n");
 	
 	return black + right_black_height;
-}
-
-void assert_is_valid_tree(rb_head_t *hd)
-{
-	ASSERT_TRUE(hd->nnodes == count_nodes(hd->root),
-		"is_valid_tree: hd->nnodes is wrong.\n");
-	valid_node(hd, hd->root);
 }
 
 void print_node(rb_node_t *n, size_t offset)
@@ -121,6 +114,14 @@ void print_tree(rb_head_t *t)
 	printf("\n");
 }
 
+void assert_is_valid_tree(rb_head_t *hd)
+{
+/*	print_tree(hd); */
+	ASSERT_TRUE(hd->nnodes == count_nodes(hd->root),
+		"is_valid_tree: hd->nnodes is wrong.\n");
+	valid_node(hd, hd->root);
+}
+
 long point_cmp(void *lhs, void *rhs)
 {
 	int rx = ((test_t*)rhs)->x;
@@ -137,7 +138,7 @@ long point_cmp(void *lhs, void *rhs)
 
 /**** tests ****/
 
-static const size_t n = 4;
+static const size_t n = 6;
 
 void test_insert()
 {
@@ -165,7 +166,6 @@ void test_insert()
 			    "test_basic: error. found element in tree"
 			    " that was not inserted.\n");
 	}
-	print_tree(&t);
 }
 
 void test_delete()
@@ -178,8 +178,12 @@ void test_delete()
 		rb_insert(&t, (void*)&data[i]);
 	}
 	
+	print_tree(&t);
+
 	for (size_t i = 0; i < n; i++) {
+		printf("removing node with value %i.\n", data[i].x);
 		rb_erase(&t, (void*)&data[i]);
+		print_tree(&t);
 		assert_is_valid_tree(&t);
 		ASSERT_TRUE(rb_find(&t, (void*)&data[i]) == NULL,
 			    "test_basic: error. found element after deleting it.\n");
@@ -319,8 +323,8 @@ int main(int argc, char **argv)
 	(void)argc;
 	(void)argv;
 	srand(time(NULL));
-	REGISTER_TEST(test_insert);
-//	REGISTER_TEST(test_delete);
+	//REGISTER_TEST(test_insert);
+	REGISTER_TEST(test_delete);
 	//REGISTER_TEST(test_itterators);
 	//REGISTER_TEST(test_splice);
 	//REGISTER_TEST(test_for_each);
