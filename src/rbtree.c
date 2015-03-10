@@ -160,14 +160,12 @@ static void rb_swap(rb_head_t *hd, rb_node_t *high, rb_node_t *low)
 	unsigned long left;
 	unsigned long color;
 
-	printf("swap: entering.\n");
-
 	/* convenience macro to make this function prettier */
-#define __RB_SWAP(a, b) \
-	do {		\
+#define __RB_SWAP(a, b)				\
+	do {					\
 		tmp = a;			\
 		a = b;				\
-		b = tmp;				\
+		b = tmp;			\
 	} while (0);
 	
 	
@@ -211,13 +209,8 @@ static void rb_swap(rb_head_t *hd, rb_node_t *high, rb_node_t *low)
 		SET_PARENT(high->chld[RIGHT], high);
 	if (high->chld[LEFT])
 		SET_PARENT(high->chld[LEFT], high);
-
-	/* TODO: are these checks necessary, or can we just do it every time? */
-	if (low->chld[RIGHT])
-		SET_PARENT(low->chld[RIGHT], low);
-	if (low->chld[LEFT])
-		SET_PARENT(low->chld[LEFT], low);
-	printf("swap: about to return.\n");
+	SET_PARENT(low->chld[RIGHT], low);
+	SET_PARENT(low->chld[LEFT], low);
 }
 
 /*
@@ -231,7 +224,6 @@ static rb_node_t *rb_rotate_single(rb_head_t *hd,
 				   rb_node_t *root,
 				   unsigned long right)
 {
-/*	printf("single rotate.\n"); */
 	unsigned long left = 1 - right;
 	rb_node_t *child = root->chld[left];
 	rb_node_t *parent = GET_PARENT(root);
@@ -267,7 +259,6 @@ static rb_node_t *rb_rotate_double(rb_head_t *hd,
 				   rb_node_t *root,
 				   unsigned long right)
 {
-/*	printf("double rotate.\n"); */
 	unsigned long left = 1 - right;
 	rb_rotate_single(hd, root->chld[left], left);
 	return rb_rotate_single(hd, root, right);
@@ -308,8 +299,8 @@ void rb_insert(rb_head_t *hd, void *new)
 		if (cmp == 0)
 			return;
 		
-		i = cmp_to_index(cmp);
 		/* push the direction we're about to traverse onto stack */
+		i = cmp_to_index(cmp);
 		stack <<= 1;
 		stack |= i;
 
@@ -332,8 +323,9 @@ void rb_insert(rb_head_t *hd, void *new)
 		aunt = gparent->chld[RIGHT] == path
 			? gparent->chld[LEFT]
 			: gparent->chld[RIGHT];
-		
-		if (is_black(aunt)) { /* inserted into 3 node */
+
+		/* inserted into 3 node */
+		if (is_black(aunt)) {
 			/* last 2 traversed directions were oposites */
 			if ((stack & 1) ^ ((stack >> 1) & 1))
 				path = rb_rotate_double(hd, gparent, stack & 1);
@@ -343,14 +335,18 @@ void rb_insert(rb_head_t *hd, void *new)
 			MAKE_RED(path->chld[RIGHT]);
 			MAKE_RED(path->chld[LEFT]);
 			break;
-		} else { /* inserted into 4 node */
+		}
+		/* inserted into 4 node */
+		else {
 			MAKE_BLACK(path);
 			MAKE_BLACK(aunt);
 			MAKE_RED(gparent);
 			path = GET_PARENT(gparent);
 		}
-		/* we move up two nodes on the tree each time, so
-		 * 'pop' the last two directions off the stack*/
+		/*
+		 * we move up two nodes on the tree each time, so
+		 * 'pop' the last two directions off the stack
+		 */
 		stack >>= 2;
 	}
 	MAKE_BLACK(hd->root);
@@ -385,14 +381,30 @@ void rb_erase(rb_head_t *hd, void *victim)
 		make_black(child);
 		return;
 	}
-
-	/* else color it black and prepare for some fun... */
 	make_black(child);
+	
+	/*
+	 * All the variables can be a little hard to follow through this loop,
+	 * so here's what the tree looks like with respect to the locals:
+	 *
+	 *           parent
+	 *           /    \
+	 *       (left) (right)
+	 *         /        \
+	 *     sibling    child
+	 *     /    \ 
+	 *    /      \
+	 * lniece  rniece
+	 */
 	while (parent) {
 		right = parent->chld[RIGHT] == child ? RIGHT : LEFT;
 		left = 1 - right;
 		
-		/* case reduction */
+		/*
+		 * case reduction -- the red sibling cases suck, but we can
+		 * reduce them to black sibling cases with the following
+		 * transformation (pushes the black violation down)
+		 */
 		if (is_red(parent->chld[left])) {
 			tmp = rb_rotate_single(hd, parent, right);
 			MAKE_RED(parent);
@@ -403,25 +415,38 @@ void rb_erase(rb_head_t *hd, void *victim)
 		rniece = sibling->chld[right];
 		lniece = sibling->chld[left];
 
+		/*
+		 * Both niece are black, we can rebalance by fiddling with
+		 * colors.
+		 */ 
 		if (is_black(rniece) && is_black(lniece)) {
 			MAKE_RED(sibling);
 			if (IS_RED(parent)) {
 				MAKE_BLACK(parent);
-				return;
+				break;
+			} else {
+				/* only case where we propagate */
+				child = parent;
+				parent = GET_PARENT(parent);
+				continue;
 			}
-		} else {
+		}
+		/*
+		 * Otherwise we have at least one red niece, we need to
+		 * rebalance by rotating.
+		 */ 
+		else {
 			color = GET_COLOR(parent);
 			if (is_red(lniece)) {
 				parent = rb_rotate_single(hd, parent, right);
-				MAKE_BLACK(parent->chld[LEFT]);
+				MAKE_BLACK(parent->chld[left]);
 			} else {
 				parent = rb_rotate_double(hd, parent, right);
 			}
-			MAKE_BLACK(parent->chld[RIGHT]);
+			MAKE_BLACK(parent->chld[right]);
 			set_color(parent, color);
-			return;
+			break;
 		}
-		parent = GET_PARENT(parent);
 	}
 	make_black(hd->root);
 }

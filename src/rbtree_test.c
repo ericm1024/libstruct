@@ -116,7 +116,6 @@ void print_tree(rb_head_t *t)
 
 void assert_is_valid_tree(rb_head_t *hd)
 {
-/*	print_tree(hd); */
 	ASSERT_TRUE(hd->nnodes == count_nodes(hd->root),
 		"is_valid_tree: hd->nnodes is wrong.\n");
 	valid_node(hd, hd->root);
@@ -138,7 +137,7 @@ long point_cmp(void *lhs, void *rhs)
 
 /**** tests ****/
 
-static const size_t n = 6;
+static const size_t n = 10000;
 
 void test_insert()
 {
@@ -177,13 +176,9 @@ void test_delete()
 		data[i].x = rand();
 		rb_insert(&t, (void*)&data[i]);
 	}
-	
-	print_tree(&t);
 
 	for (size_t i = 0; i < n; i++) {
-		printf("removing node with value %i.\n", data[i].x);
 		rb_erase(&t, (void*)&data[i]);
-		print_tree(&t);
 		assert_is_valid_tree(&t);
 		ASSERT_TRUE(rb_find(&t, (void*)&data[i]) == NULL,
 			    "test_basic: error. found element after deleting it.\n");
@@ -242,34 +237,6 @@ void test_itterators()
 	}			    
 }
 
-/* avl splice 
-void test_splice()
-{
-	AVL_TREE(t, &point_cmp, test_t, avl);
-	AVL_TREE(s, &point_cmp, test_t, avl);
-	test_t data[n*2];
-	
-	for (size_t i = 0; i < n; i++) {
-		data[i].x = rand();
-		data[i + n].x = rand();
-		avl_insert(&t, (void*)&data[i]);
-		avl_insert(&s, (void*)&data[i+n]);
-	}
-	avl_splice(&t, &s);
-	
-	assert_is_valid_tree(&t);
-	ASSERT_TRUE(s.n_nodes == 0, "test_splice: splicee.n_nodes was not zero"
-		    " after splicing.\n");
-	ASSERT_TRUE(s.root == NULL, "test_splice: splicee.root was not null"
-		    " after splicing.\n");
-
-	for (size_t i = 0; i < n*2; i++) {
-		ASSERT_TRUE(avl_find(&t, (void*)&data[i]) == &data[i],
-			    "test_splice: could not find element in target tree"
-			    " after splicing.\n");
-	}
-}
-
 /* avl for each 
 void test_for_each()
 {
@@ -323,7 +290,7 @@ int main(int argc, char **argv)
 	(void)argc;
 	(void)argv;
 	srand(time(NULL));
-	//REGISTER_TEST(test_insert);
+	REGISTER_TEST(test_insert);
 	REGISTER_TEST(test_delete);
 	//REGISTER_TEST(test_itterators);
 	//REGISTER_TEST(test_splice);
