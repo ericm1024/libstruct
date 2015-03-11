@@ -137,7 +137,7 @@ long point_cmp(void *lhs, void *rhs)
 
 /**** tests ****/
 
-static const size_t n = 10000;
+static const size_t n = 1000;
 
 void test_insert()
 {
@@ -187,53 +187,53 @@ void test_delete()
 	}
 }
 
-/* avl next 
+
 void test_itterators()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
+	RB_TREE(t, &point_cmp, test_t, rb);
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
-		avl_insert(&t, (void*)&data[i]);
+		rb_insert(&t, (void*)&data[i]);
 	}
 
-	ASSERT_TRUE(avl_first(&t) == &data[0], "test_itterators: avl_first did"
+	ASSERT_TRUE(rb_first(&t) == &data[0], "test_itterators: rb_first did"
 		    " not return first element.\n");
-	ASSERT_TRUE(avl_last(&t) == &data[n-1], "test_itterators: avl_last did"
+	ASSERT_TRUE(rb_last(&t) == &data[n-1], "test_itterators: rb_last did"
 		    " not return last element.\n");
 
-	void *node = avl_first(&t);
+	void *node = rb_first(&t);
 	for (size_t i = 0; i < n; i++) {
 		ASSERT_FALSE(node == NULL, "test_itterators: got null node"
 			     " when more nodes were expected.\n");
 		ASSERT_TRUE(node == &data[i], "test_itterators: traversed out"
 			    " of order.\n");
 		if (i > 0) {
-			ASSERT_TRUE(avl_prev(&t, node) == &data[i-1],
+			ASSERT_TRUE(rb_inorder_prev(&t, node) == &data[i-1],
 				    "test_itterators: avl_prev does not give"
 				    " previous element.\n");
-			ASSERT_TRUE(avl_next(&t, avl_prev(&t, node)) == &data[i],
+			ASSERT_TRUE(rb_inorder_next(&t, rb_inorder_prev(&t, node)) == &data[i],
 				    "test_itterators: next of prev does not give"
 				    " current node.\n");
 		} else {
-			ASSERT_TRUE(node == avl_first(&t), "test_itterators:"
-				    " first node not equal to avl_first");
-			ASSERT_TRUE(avl_prev(&t, node) == NULL,
-				    "test_itterators: avl_prev of first element"
+			ASSERT_TRUE(node == rb_first(&t), "test_itterators:"
+				    " first node not equal to rb_first.\n");
+			ASSERT_TRUE(rb_inorder_prev(&t, node) == NULL,
+				    "test_itterators: rb_inorder_prev of first element"
 				    " does not give NULL.\n");
 		}
 		if (i < n-1)
-			ASSERT_TRUE(avl_prev(&t, avl_next(&t, node)) == &data[i],
+			ASSERT_TRUE(rb_inorder_prev(&t, rb_inorder_next(&t, node)) == &data[i],
 				    "test_itterators: prev of next does not give"
 				    " current node.\n");
 		else {
-			ASSERT_TRUE(avl_next(&t, node) == NULL, "test_itterators:"
+			ASSERT_TRUE(rb_inorder_next(&t, node) == NULL, "test_itterators:"
 				    " next of last nodes does not give null.\n");
-			ASSERT_TRUE(node == avl_last(&t), "test_itterators:"
-				    " last node not equal to avl_last");
+			ASSERT_TRUE(node == rb_last(&t), "test_itterators:"
+				    " last node not equal to rb_last.\n");
 		}
-		node = avl_next(&t, node);
+		node = rb_inorder_next(&t, node);
 	}			    
 }
 
@@ -292,7 +292,7 @@ int main(int argc, char **argv)
 	srand(time(NULL));
 	REGISTER_TEST(test_insert);
 	REGISTER_TEST(test_delete);
-	//REGISTER_TEST(test_itterators);
+	REGISTER_TEST(test_itterators);
 	//REGISTER_TEST(test_splice);
 	//REGISTER_TEST(test_for_each);
 	//REGISTER_TEST(test_for_each_range);
