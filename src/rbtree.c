@@ -466,3 +466,60 @@ void *rb_find(rb_head_t *hd, void *findee)
 	}
 	return NULL;
 }
+
+void *rb_first(rb_head_t *hd)
+{
+	rb_node_t *first = hd->root;
+	if (!first)
+		return NULL;
+	while (first->chld[LEFT])
+		first = first->chld[LEFT];
+	return node_to_data(hd, first);
+}
+
+void *rb_last(rb_head_t *hd)
+{
+	rb_node_t *first = hd->root;
+	if (!first)
+		return NULL;
+	while (first->chld[RIGHT])
+		first = first->chld[RIGHT];
+	return node_to_data(hd, first);
+
+}
+
+void *rb_inorder_next(rb_head_t *hd, void *start)
+{
+	rb_node_t *n = data_to_node(hd, start);
+	rb_node_t *path;
+
+	if (!start)
+		return NULL;
+	else if (n->chld[RIGHT])
+		n = closest_child(n, RIGHT);
+	else
+		do {
+			path = n;
+			n = GET_PARENT(n);
+		} while (n && n->chld[RIGHT] == path);
+	
+	return n ? node_to_data(hd, n) : NULL;
+}
+
+void *rb_inorder_prev(rb_head_t *hd, void *start)
+{
+ 	rb_node_t *n = data_to_node(hd, start);
+	rb_node_t *path;
+
+	if (!start)
+		return NULL;
+	else if (n->chld[LEFT])
+		n = closest_child(n, LEFT);
+	else
+		do {
+			path = n;
+			n = GET_PARENT(n);
+		} while (n && n->chld[LEFT] == path);
+	
+	return n ? node_to_data(hd, n) : NULL;	
+}
