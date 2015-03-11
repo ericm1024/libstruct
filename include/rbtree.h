@@ -85,7 +85,7 @@ extern void *rb_last(rb_head_t *hd);
  * \param start  The element to start at.
  * \return The element imediately after start.
  */
-extern void *rb_inorder_next(void *start);
+extern void *rb_inorder_next(rb_head_t *hd, void *start);
 
 /**
  * \brief Get the in order previous element in a tree.
@@ -93,7 +93,7 @@ extern void *rb_inorder_next(void *start);
  * \param start  The element to start at.
  * \return The element imediately before start.
  */
-extern void *rb_inorder_prev(void *start);
+extern void *rb_inorder_prev(rb_head_t *hd, void *start);
 
 /* TODO: postorder next */
 /* TODO: postorder previous */
