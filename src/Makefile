@@ -3,7 +3,7 @@ OPTFLAGS = -O0
 INCLUDE = ../include
 RNG = ./pcg-c-master
 CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
-TARGETS = flist_test list_test avl_test htable_test bloom_test
+TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test
 
 vpath %.h $(INCLUDE)
 vpath %.h $(RNG)/include
@@ -19,6 +19,7 @@ test: $(TARGETS)
 	valgrind --leak-check=full ./avl_test
 	valgrind --leak-check=full ./htable_test
 	valgrind --leak-check=full --max-stackframe=20000000 ./bloom_test
+	valgrind --leak-check=full ./rbtree_test
 
 flist_test: flist_test.o flist.o
 	$(CC) $(CFLAGS) -o $@ $^
