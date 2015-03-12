@@ -237,40 +237,38 @@ void test_itterators()
 	}			    
 }
 
-/* avl for each 
+
 void test_for_each()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
+	RB_TREE(t, &point_cmp, test_t, rb);
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
-		avl_insert(&t, (void*)&data[i]);
+		rb_insert(&t, (void*)&data[i]);
 	}
 
-	avl_for_each(&t, i) {
-		((test_t*)i)->x++;
-	}
+	rb_for_each_inorder(&t, test_t, i)
+		i->x++;
 	
 	for (size_t i = 0; i < n; i++)
 		ASSERT_TRUE(data[i].x == (int)i+1, "test_for_each: data was not"
 			    " modified.\n");
 }
 
-/* avl for each range 
+
 void test_for_each_range()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
+	RB_TREE(t, &point_cmp, test_t, rb);
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
-		avl_insert(&t, (void*)&data[i]);
+		rb_insert(&t, (void*)&data[i]);
 	}
 
-	avl_for_each_range(&t, i, (void*)&data[n/4], (void*)&data[n - n/4]) {
-		((test_t*)i)->x++;
-	}
+	rb_for_each_range(&t, test_t, i, &data[n/4], &data[n - n/4])
+		i->x++;
 
 	for (size_t i = 0; i < n/4; i++)
 		ASSERT_TRUE(data[i].x == (int)i, "test_for_each_range: data out"
@@ -281,7 +279,23 @@ void test_for_each_range()
 	for (size_t i = n - n/4; i < n; i++)
 		ASSERT_TRUE(data[i].x == (int)i, "test_for_each_range: data out"
 			    " of range (after end) was modified.\n");
-			    } */
+}
+
+void test_postorder_iterate()
+{
+	RB_TREE(t, &point_cmp, test_t, rb);
+	test_t *array[n];
+
+	for (size_t i = 0; i < n; i++) {
+		array[i] = malloc(sizeof(test_t));
+		ASSERT_TRUE(array[i], "malloc failed!\n");
+		array[i]->x = rand();
+		rb_insert(&t, (void*)array[i]);
+	}
+
+	rb_postorder_iterate(&t, free);
+	/* valgrind will catch errors */
+}
 
 /**** main ****/
 
@@ -293,8 +307,8 @@ int main(int argc, char **argv)
 	REGISTER_TEST(test_insert);
 	REGISTER_TEST(test_delete);
 	REGISTER_TEST(test_itterators);
-	//REGISTER_TEST(test_splice);
-	//REGISTER_TEST(test_for_each);
-	//REGISTER_TEST(test_for_each_range);
+	REGISTER_TEST(test_for_each);
+	REGISTER_TEST(test_for_each_range);
+	REGISTER_TEST(test_postorder_iterate);
 	return run_all_tests();
 }

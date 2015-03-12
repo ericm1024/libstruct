@@ -83,6 +83,7 @@ extern void *rb_last(rb_head_t *hd);
  * \brief Get the in order next element in a tree.
  * 
  * \param start  The element to start at.
+ * \param hd     Head of the tree containing start.
  * \return The element imediately after start.
  */
 extern void *rb_inorder_next(rb_head_t *hd, void *start);
@@ -91,13 +92,56 @@ extern void *rb_inorder_next(rb_head_t *hd, void *start);
  * \brief Get the in order previous element in a tree.
  * 
  * \param start  The element to start at.
+ * \param hd     Head of the tree containing start.
  * \return The element imediately before start.
  */
 extern void *rb_inorder_prev(rb_head_t *hd, void *start);
 
-/* TODO: postorder next */
-/* TODO: postorder previous */
-/* TODO: for each macro */
-/* TODO: for each range macro */
+/**
+ * \brief Get the next element in the tree in postorder.
+ * \param hd  Head of the tree.
+ * \param f   Function to apply to each structure in the tree in postorder
+ * fashion.
+ *
+ * \detail Postorder iteration entails visiting each child node before
+ * its parent. This is generally only used for safely freeing memory
+ * associated With every node in the tree.
+ */ 
+extern void rb_postorder_iterate(rb_head_t *hd, void(*f)(void *));
+
+/**
+ * Loop over the elements in a tree in order.
+ *
+ * \param head       Head of the tree to iterate over.
+ * \param type       (token) Type of the iterator to declare (type of the
+ *                   enclosing struct, not a pointer type).
+ * \param iter_name  (token) Name of the iterator to declare (use this in
+ *                   your loop). The macro declares a variable of type @type
+ *                   with this name. Don't declare one yourself.
+ *                   
+ */
+#define rb_for_each_inorder(head, type, iter_name)			\
+	for (type *iter_name = (type*)rb_first(head); iter_name;        \
+	     iter_name = (type*)rb_inorder_next(head, iter_name))
+	
+/**
+ * Loop over the elements in the tree in the range [first, last)
+ *
+ * \param head       Head of the tree to iterate over.
+ * \param type       (token) Type of the iterator to declare (type of the
+ *                   enclosing struct, not a pointer type).
+ * \param iter_name  (token) Name of the iterator to declare (use this in
+ *                   your loop). The macro declares a variable of type @type
+ *                   with this name. Don't declare one yourself.
+ * \param first      (pointer) First element in the tree to apply the
+ *                   function to.
+ * \param last       (pointer) The node after the last node to apply the
+ *                   function to. Matching is determined by the return value
+ *                   of the tree's cmp function.
+ */
+#define rb_for_each_range(head, type, iter_name, first, last)		\
+	for (type *iter_name = first; 					 \
+	     (head)->cmp((void*)iter_name, (void*)(last)) != 0;		 \
+	     iter_name = (type*)rb_inorder_next(head, (void*)iter_name))
 
 #endif /* STRUCT_RBTREE_H */

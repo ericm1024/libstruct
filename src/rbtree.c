@@ -523,3 +523,56 @@ void *rb_inorder_prev(rb_head_t *hd, void *start)
 	
 	return n ? node_to_data(hd, n) : NULL;	
 }
+
+void rb_postorder_iterate(rb_head_t *hd, void(*f)(void *))
+{
+	rb_node_t *parent = hd->root;
+	rb_node_t *child;
+	bool vleft = false;  /* visited left child */
+	bool vright = false; /* visited right child */
+	
+	if (!parent)
+		return;
+	
+	/* postorder iteration: visit the children before the parent. */
+	do {
+		/* visit the left child */
+		if (!vleft) {
+			vleft = true;
+			child = parent->chld[LEFT];
+			if (!child)
+				continue;
+			while (child->chld[LEFT])
+				child = child->chld[LEFT];
+			parent = GET_PARENT(child);
+			f(node_to_data(hd, child));
+		}
+		/* visit the right child */
+		else if (!vright) {
+			vright = true;
+			child = parent->chld[RIGHT];
+			if (!child)
+				continue;
+			else if (!child->chld[LEFT])
+				f(node_to_data(hd, child));
+			/* the child has more children, so keep going left */
+			else {
+				parent = child->chld[LEFT];
+				vright = false;
+				vleft = false;
+			}
+		}
+		/* visit the parent */
+		else {
+			child = parent;
+			parent = GET_PARENT(parent);
+			if (parent) {
+				if (parent->chld[LEFT] == child)
+					vleft = true;
+				else
+					vright = true;
+			}
+			f(node_to_data(hd, child));
+		}
+	} while (parent);
+}
