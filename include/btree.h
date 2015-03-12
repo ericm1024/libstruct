@@ -23,7 +23,14 @@
 #ifndef STRUCT_BTREE_H
 #define STRUCT_BTREE_H 1
 
-#include "libstruct.h"
+#include <stddef.h>
+
+/* btree types */
+struct btree_node;
+typedef struct btree {
+	size_t entries;
+	struct btree_node *root;
+} btree_t;
 
 /**
  * \def B_TREE

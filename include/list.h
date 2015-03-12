@@ -23,7 +23,20 @@
 #ifndef STRUCT_LIST_H
 #define STRUCT_LIST_H 1
 
-#include "libstruct.h"
+#include <stddef.h>
+
+/* list (doubly-linked) list types */
+struct list {
+	struct list *next;
+	struct list *prev;
+};
+
+struct list_head {
+	struct list *first;
+	struct list *last;
+	size_t length;
+};
+
 
 /**
  * \brief Create and initialize a new empty list_head.

@@ -23,9 +23,21 @@
 #ifndef STRUCT_HTABLE_H
 #define STRUCT_HTABLE_H 1
 
-#include "libstruct.h"
+#include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
+
+/* hash table types */
+struct bucket;
+typedef struct htable {
+	size_t size;
+	size_t entries;
+	uint32_t seed1;
+	uint32_t seed2;
+	struct bucket *table1;
+	struct bucket *table2;
+	struct bucket *stash;
+} htable_t;
 
 /**
  * \brief Declare a hash table.

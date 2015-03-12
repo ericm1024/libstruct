@@ -23,7 +23,33 @@
 #ifndef STRUCT_AVL_TREE_H
 #define STRUCT_AVL_TREE_H 1
 
-#include "libstruct.h"
+#include <stddef.h>
+
+/* avl tree types */
+typedef struct avl_node {
+	struct avl_node *parent;
+	/* parent node */
+	struct avl_node *children[2];
+	/* 0 is left child, 1 is right child */
+	short balance;
+	/* balance factor. -1, 0, or 1 */
+	unsigned short cradle;
+	/* where am I in my parent? (0 or 1) */
+} avl_node_t;
+
+typedef int (*avl_cmp_t)(void *lhs, void *rhs);
+
+typedef struct avl_head {
+	avl_node_t *root;
+	/* pointer to the root node */
+	size_t n_nodes;
+	/* number of nodes in the tree */
+	avl_cmp_t cmp;
+	/* less than comparator */
+	size_t offset;
+	/* offset of the avl node in the                                                                                   
+	 * enclosing struct */
+} avl_head_t;
 
 /**
  * \brief Declare an avl tree head.

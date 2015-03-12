@@ -23,7 +23,15 @@
 #ifndef STRUCT_FLIST_H
 #define STRUCT_FLIST_H 1
 
-#include "libstruct.h"
+struct flist {
+	struct flist *next;
+};
+
+struct flist_head {
+	struct flist *first;
+	unsigned long length;
+};
+
 
 /**
  * Declares a new flist head.

@@ -24,7 +24,26 @@
 #ifndef STRUCT_BLOOM_H
 #define STRUCT_BLOOM_H 1
 
-#include "libstruct.h"
+#include <stddef.h>
+#include <stdint.h>
+
+/* bloom filter */
+typedef struct bloom {
+	long *bits;
+	/* bits array for filter */
+	uint64_t *seeds;
+	/* seeds for */
+	size_t n;
+	/* target number of elements */
+	size_t bsize;
+	/* size of bits array */
+	size_t nhash;
+	/* number of hash functions, also size of seeds array */
+	double p;
+	/* target false probability */
+	size_t nbits;
+	/* actual number of bits in the array */
+} bloom_t;
 
 /*! lower bound on allowable false positive probability parameter */
 #define BLOOM_P_MIN (1e-5)

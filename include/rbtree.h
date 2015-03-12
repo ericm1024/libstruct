@@ -23,7 +23,23 @@
 #ifndef STRUCT_RBTREE_H
 #define STRUCT_RBTREE_H 1
 
-#include "libstruct.h"
+#include <stddef.h>
+
+typedef struct rb_node {
+	struct rb_node *parent;
+	struct rb_node *chld[2];
+} rb_node_t;
+
+typedef long (*rb_cmp_t)(void *lhs, void *rhs);
+
+typedef struct rb_head {
+	rb_node_t *root;
+	size_t offset;
+	/* offset of rb_nodes in enclosing structs */
+	rb_cmp_t cmp;
+	size_t nnodes;
+	/* number of nodes in the tree */
+} rb_head_t;
 
 /**
  * \brief Declare a red-black tree head.
