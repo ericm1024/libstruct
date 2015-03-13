@@ -18,6 +18,32 @@
  * \author Eric Mueller
  *
  * \brief Header file for a doubly linked list.
+ *
+ * \detail This is a fairly straightforward doubly-linked list. It is
+ * implemented as a structure member and not a container, so if you want
+ * your struct foo to be in a list, add a struct list member to your struct
+ * foo, i.e.
+ * 
+ *     struct foo {
+ *               .
+ *               .
+ *             struct list link;
+ *               .
+ *               .
+ *     };
+ *
+ * To use the list, first declare a struct flist_head with the FLIST_HEAD
+ * macro, ex:
+ *
+ *     LIST_HEAD(foo_list);
+ *
+ * Then use any combination of list_insert_before, list_insert_after,
+ * list_delete, list_push_front, list_push_back, list_pop_front, list_pop_back,
+ * list_splice, list_for_each, list_for_each_range, and list_revers.
+ *
+ * This should go without saying, but the list does no memory allocation.
+ *
+ * Synchronization is left to the caller.
  */
 
 #ifndef STRUCT_LIST_H
@@ -25,7 +51,7 @@
 
 #include <stddef.h>
 
-/* list (doubly-linked) list types */
+/* doubly-linked list types */
 struct list {
 	struct list *next;
 	struct list *prev;
@@ -36,7 +62,6 @@ struct list_head {
 	struct list *last;
 	size_t length;
 };
-
 
 /**
  * \brief Create and initialize a new empty list_head.

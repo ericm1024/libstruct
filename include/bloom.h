@@ -19,6 +19,44 @@
  * \author Eric Mueller
  * 
  * \brief Header file for a bloom filter
+ *
+ * \detail A bloom filter is a set-like data structure similar to a hash table
+ * with a rather unique set of pros and cons.
+ *
+ * pros:
+ *   - size: bloom filters are small, ususally requiring on the order of 8-12
+ *     bits per element.
+ *   - speed: all operations (insert and query) take worst case constant time,
+ *     and in practice are very fast.
+ *
+ * cons:
+ *   - false positives: bloom filters will ocasionally return true when
+ *     querying for an element that was not inserted. The probability of
+ *     false positives can be selected when constructing the filter. Lower
+ *     probabilities require more space.
+ *   - resizing: bloom filters can not be resized, so you must know (roughly)
+ *     the size of your data set at construction time. If you underestimate and
+ *     end up inserting more elements that you originally indented, the false
+ *     positive probability will rise.
+ *   - deletion: elements can not be deleted from a bloom filter.
+ *
+ * Despite these drawbacks, bloom filters can be extremely useful. For example,
+ * many databases use them to prevent unnecessary disk lookups for non-existent
+ * rows. (i.e., if a row doesn't exist, the bloom filter will tell you so with
+ * high probability, but if it does the db would have to go to disk anyway.
+ * their small memory footprint makes them an even better canidate for this
+ * task.)
+ *
+ * To use this bloom filter, first declare one using the BLOOM_FILTER macro, ex:
+ *
+ *     BLOOM_FILTER(my_filter, 1 << 20, 0.005)
+ *
+ * Then call bloom_init to initialize the filter (this allocates memory). At
+ * this point use any combination of bloom_insert and bloom_query. When you are
+ * done with the filter, call bloom_destroy to free all memory associated with
+ * it.
+ *
+ * Synchronization is left to the caller.
  */
 
 #ifndef STRUCT_BLOOM_H
@@ -32,7 +70,7 @@ typedef struct bloom {
 	long *bits;
 	/* bits array for filter */
 	uint64_t *seeds;
-	/* seeds for */
+	/* seeds for hash functions */
 	size_t n;
 	/* target number of elements */
 	size_t bsize;

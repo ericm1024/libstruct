@@ -18,6 +18,31 @@
  * \author Eric Mueller
  * 
  * \brief Header file for a forward list (singly linked).
+ *
+ * \detail This is a fairly straightforward forward-linked list (i.e. singly
+ * linked list). It is implemented as a structure member and not a container,
+ * so if you want your struct foo to be in a list, add a struct flist member
+ * to your struct foo, i.e.
+ *
+ *     struct foo {
+ *               .
+ *               .
+ *             struct flist link;
+ *               .
+ *               .
+ *     };
+ *
+ * To use the list, first declare a struct flist_head with the FLIST_HEAD
+ * macro, ex:
+ *
+ *     FLIST_HEAD(foo_list);
+ *
+ * Then use any combination of flist_push_front, flist_pop_front,
+ * flist_insert_after, flist_splice, flist_for_each, and flist_for_each_range.
+ *
+ * This should go without saying, but the list does no memory allocation.
+ *
+ * Synchronization is left to the caller.
  */
 
 #ifndef STRUCT_FLIST_H

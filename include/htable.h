@@ -18,6 +18,23 @@
  * \author Eric Mueller
  *
  * \brief Header file for a hash table.
+ *
+ * \detail This hash table has fairly standard behavior. To create one,
+ * use the HASH_TABLE macro, ex:
+ *
+ *   HASH_TABLE(my_table)
+ *
+ * then call htable_init to do the initial memory allocations. At that point
+ * the hash table can be used with htable_insert, htable_remove, htable_exists,
+ * and htable_get. When finished with the table, call htable_destroy to free
+ * all memory associated with the table.
+ *
+ * The current implementation guarentees average case O(1) time for insertion
+ * and worst case O(1) time for remove, exists, and get. Worst case time for
+ * insertion is O(n), where n is the size of the table. For full implementation
+ * details, see htable.c.
+ *
+ * Synchronization is left to the caller.
  */
 
 #ifndef STRUCT_HTABLE_H

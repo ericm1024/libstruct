@@ -18,6 +18,45 @@
  * \author Eric Mueller
  * 
  * \brief Header file for a red black tree.
+ *
+ * \detail This is a fairly standard red-black tree. red-black trees are
+ * described in great detail in most data strutures textbooks and on Wikipedia,
+ * so I won't decribe them in full. In essence they are a binary tree that
+ * maintains relatively strict balance by 'coloring' the nodes of the tree
+ * and enforcing a set of rules based on those colors. The rules are such that
+ * the height of the tree is bounded by 2*log(n + 1). This ensures that inert,
+ * erase, and query operations can be performed in O(log n) time in the worst
+ * case.
+ *
+ * This implementation is meant to be used as a structure member and not a
+ * container. In other words, if you want your struct foo to be organized in a
+ * red-black tree, add a field of type rb_node_t to your struct declaration, ex:
+ *
+ *   struct foo {
+ *             .
+ *             .
+ *           rb_node_t rb_link;
+ *             .
+ *             .
+ *   };
+ *
+ * Then declare a red-black tree with the RB_TREE macro, ex:
+ *
+ *     RB_TREE(foo_tree, lt_op, foo, avl_link);
+ *
+ * The requirements of the less than operator (lt_op) are described in the
+ * macro's doccumentation.
+ *
+ * At this point, the tree can be modified with calls to rb_insert and
+ * rb_delete, queried with calls to rb_find, and traversed in order with
+ * rb_first, rb_last, rb_next, and rb_prev. The convenience macros rb_for_each
+ * and rb_for_each_range can be used to iterate over an entire tree or some
+ * portion of the tree. Finally, the tree can be traversed in postorder
+ * fasion using the rb_postorder_iterate function.
+ *
+ * It's worth noting that none of these functions allocate memory.
+ *
+ * Synchronization is the job of the caller.
  */
 
 #ifndef STRUCT_RBTREE_H

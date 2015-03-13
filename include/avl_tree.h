@@ -18,6 +18,42 @@
  * \author Eric Mueller
  * 
  * \brief Header file for an avl tree.
+ *
+ * \detail This is a fairly standard avl tree. avl trees are described in
+ * great detail in most data strutures textbooks and on Wikipedia, so I won't
+ * decribe them in full. In essence they are a binary tree that maintains
+ * strict balance by requiring that the difference in height between the left
+ * and right subtree of any node be at most 1. This ensures that inert, erase,
+ * and query operations can be performed in O(log n) time in the worst case.
+ *
+ * This implementation is meant to be used as a structure member and not a
+ * container. In other words, if you want your struct foo to be organized in an
+ * avl tree, add a field of type avl_node_t to your struct declaration, ex:
+ *
+ *   struct foo {
+ *             .
+ *             .
+ *           avl_node_t avl_link;
+ *             .
+ *             .
+ *   };
+ *
+ * Then declare an avl tree with the AVL_TREE macro, ex:
+ *
+ *     AVL_TREE(foo_tree, lt_op, foo, avl_link);
+ *
+ * The requirements of the less than operator (lt_op) are described in the
+ * macro's doccumentation.
+ *
+ * At this point, the tree can be modified with calls to avl_insert and
+ * avl_delete, queried with calls to avl_find, and traversed in order with
+ * avl_first, avl_last, avl_next, and avl_prev. Finally, the convenience
+ * macros avl_for_each and avl_for_each_range can be used to iterate over an
+ * entire tree or some portion of the tree.
+ * 
+ * It's worth noting that none of these functions here allocate memory and
+ * none of them try to aquire or otherwise use locks in any way. Thread
+ * safety is the job of the caller.
  */
 
 #ifndef STRUCT_AVL_TREE_H
@@ -159,6 +195,5 @@ extern void avl_splice(avl_head_t *hd, avl_head_t *splicee);
 #define avl_for_each_range(head, iter_name, first, last)                  \
 	for (void *iter_name = first; (head)->cmp(iter_name, last) != 0;  \
 	     iter_name = avl_next(head, iter_name))
-	      
 
 #endif /* STRUCT_AVL_TREE_H */
