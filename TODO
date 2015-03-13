@@ -19,8 +19,6 @@ future structures:
 	counting filter
 
 housekeeping:
-	- move all the types from libstruct.h to their respective header
-	  files, that was a mistake to begin with
 	- give comprehensive doccumentation of each interface and important
 	  implementation details at top of header files. Functions are
 	  individually well documented, but the 'big picture' is missing
