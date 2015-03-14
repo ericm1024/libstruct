@@ -23,6 +23,16 @@
 #include <assert.h>
 #include <stdbool.h>
 
+static inline void *node_to_data(struct list_head *hd, struct list *n)
+{
+        return n ? (void *)((uintptr_t)n - hd->offset) : NULL;
+}
+
+static inline struct list *data_to_node(struct list_head *hd, void *d)
+{
+        return d ? (struct list *)((uintptr_t)d + hd->offset) : NULL;
+}
+
 static inline void link(struct list *a, struct list *b)
 {
 	if (a)
@@ -31,7 +41,7 @@ static inline void link(struct list *a, struct list *b)
 		b->prev = a;
 }
 
-static inline void link3( struct list *a, struct list *b, struct list *c)
+static inline void link3(struct list *a, struct list *b, struct list *c)
 {
 	link(a,b);
 	link(b,c);
@@ -58,111 +68,104 @@ static inline void terminate_with_nulls(struct list *a)
 	a->next = NULL;
 }
 
-void list_insert_before(struct list_head *hd, struct list *before,
-			struct list *insertee)
+void list_insert_before(struct list_head *hd, void *before,
+			void *insertee)
 {
-	assert(hd);
-	assert(insertee);
+	struct list *l_before = data_to_node(hd, before);
+	struct list *l_in = data_to_node(hd, insertee);
 	
 	if (!before) {
 		list_push_back(hd, insertee);
 		return;
 	}
 	
-	if (is_first(before))
-		hd->first = insertee;
-	link3(before->prev, insertee, before);
+	if (is_first(l_before))
+		hd->first = l_in;
+	link3(l_before->prev, l_in, l_before);
 	hd->length++;
 }
 
-void list_insert_after(struct list_head *hd, struct list *after,
-		       struct list *insertee)
+void list_insert_after(struct list_head *hd, void *after, void *in)
 {
-	assert(hd);
-	assert(insertee);
+	struct list *l_after = data_to_node(hd, after);
+	struct list *l_in = data_to_node(hd, in);
 
 	if (!after) {
-		list_push_front(hd, insertee);
+		list_push_front(hd, in);
 		return;
 	}
 	
-	
-	if (is_last(after))
-		hd->last = insertee;
-	link3(after, insertee, after->next);
+	if (is_last(l_after))
+		hd->last = l_in;
+	link3(l_after, l_in, l_after->next);
 	hd->length++;
 }
 
-void list_delete(struct list_head *hd, struct list *victim)
+void list_delete(struct list_head *hd, void *victim)
 {
-	assert(hd);
+	struct list *l_vic = data_to_node(hd, victim);
 
 	if (!victim)
 		return;
 	
-	if (is_last(victim))
-		hd->last = victim->prev;
-	if (is_first(victim))
-		hd->first = victim->next;
-	link(victim->prev, victim->next);
+	if (is_last(l_vic))
+		hd->last = l_vic->prev;
+	if (is_first(l_vic))
+		hd->first = l_vic->next;
+	link(l_vic->prev, l_vic->next);
 	hd->length--;
 }
 
-void list_push_front(struct list_head *hd, struct list *pushee)
+void list_push_front(struct list_head *hd, void *pushee)
 {
-	assert(hd);
-	assert(pushee);
+	struct list *push = data_to_node(hd, pushee);
 	
-	terminate_with_nulls(pushee);
-	link(pushee, hd->first);
+	terminate_with_nulls(push);
+	link(push, hd->first);
 	if (is_empty(hd))	
-		hd->last = pushee;
-	hd->first = pushee;
+		hd->last = push;
+	hd->first = push;
 	hd->length++;
 }
 
-void list_push_back(struct list_head *hd, struct list *pushee)
+void list_push_back(struct list_head *hd, void *pushee)
 {
-	assert(hd);
-	assert(pushee);
+	struct list *push = data_to_node(hd, pushee);
 
-	terminate_with_nulls(pushee);
-	link(hd->last, pushee);
+	terminate_with_nulls(push);
+	link(hd->last, push);
 	if (is_empty(hd))
-		hd->first = pushee;
-	hd->last = pushee;
+		hd->first = push;
+	hd->last = push;
 	hd->length++;
 }
 
-struct list *list_pop_front(struct list_head *hd)
+void *list_pop_front(struct list_head *hd)
 {
-	assert(hd);
-	
-	struct list *victim = hd->first;
+	void *victim = node_to_data(hd, hd->first);
 	list_delete(hd, victim);
 	return victim;
 }
 
-struct list *list_pop_back(struct list_head *hd)
+void *list_pop_back(struct list_head *hd)
 {
-	assert(hd);
-	
-	struct list *victim = hd->last;
+	void *victim = node_to_data(hd, hd->last);
 	list_delete(hd, victim);
 	return victim;
 }
 
-void list_splice(struct list_head *hd, struct list *after,
+void list_splice(struct list_head *hd, void *after,
 		 struct list_head *splicee)
 {
-	assert(hd);
-
+	struct list *l_after = data_to_node(hd, after);
 	if (!splicee || is_empty(splicee))
 		return;
 
+	assert(hd->offset == splicee->offset);
+
 	if (after) {
-		link(splicee->last, after->next);
-		link(after, splicee->first);
+		link(splicee->last, l_after->next);
+		link(l_after, splicee->first);
 	} else {
 		link(splicee->last, hd->first);
 		hd->first = splicee->first;
@@ -176,30 +179,23 @@ void list_splice(struct list_head *hd, struct list *after,
 	splicee->length = 0;
 }
 
-void list_for_each(struct list_head *hd, void (*f)(void *data),
-		   ptrdiff_t offset)
+void list_for_each(struct list_head *hd, void (*f)(void *data))
 {
-	assert(hd);
-	assert(f);
-
 	for (struct list *i = hd->first; i; ) {
 		struct list *next = i->next;
-		f( (void *)((char *)i - offset) );
+		f(node_to_data(hd, i));
 		i = next;
 	}	
 }
 
 void list_for_each_range(struct list_head *hd, void (*f)(void *data),
-			 ptrdiff_t offset, struct list *first,
-			 struct list *last )
+			 void *first, void *last )
 {
-	assert(hd);
-	assert(first);
-	assert(f);
-
-	for (struct list *i = first; i && i != last; ) {
+	struct list *l_first = data_to_node(hd, first);
+	struct list *l_last = data_to_node(hd, last);
+	for (struct list *i = l_first; i && i != l_last; ) {
 		struct list *next = i->next;
-		f( (void *)((char *)i - offset) );
+		f(node_to_data(hd, i));
 		i = next;
 	}
 }

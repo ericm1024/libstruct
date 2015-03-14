@@ -49,6 +49,7 @@
 #define STRUCT_FLIST_H 1
 
 #include <stddef.h>
+#include <stdint.h>
 
 struct flist {
 	struct flist *next;
@@ -57,47 +58,41 @@ struct flist {
 struct flist_head {
 	struct flist *first;
 	unsigned long length;
+	unsigned long offset;
 };
-
 
 /**
  * Declares a new flist head.
  *
  * \param  The name of the new list.
- */
-#define FLIST_HEAD(name) \
-	struct flist_head name = {NULL, 0};
-
-/**
- * This macro is taken out of the Linux kernel and is not my own.
- * (This comment however, is)
- *
- * \param ptr     Pointer to a member of a struct.
- * \para mtype    The type of the enclosing struct.
+ * \param type    The type of the enclosing struct.
  * \param member  The name of the member in the struct declaration.
  */
-#define container_of(ptr, type, member) ({                      \
-        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
+#define FLIST_HEAD(name, type, member)			                 \
+	struct flist_head name = (struct flist_head){                    \
+		                     .first = NULL,	                 \
+				     .length = 0,	                 \
+	                             .offset = offsetof(type, member)};
+
 
 /**
  * Insert a list element after another element.
  *
  * \param hd        Pointer to the head of the list.
- * \param after     Pointer to the list node to insert after. If null, insertee is
- *                  inserted at the front of the list.
- * \param insertee  Pointer the the list node to insert.
+ * \param after     Object to insert after. If null, insertee is inserted at the
+ *                  front of the list.
+ * \param insertee  Object to insert.
  */
-extern void flist_insert_after(struct flist_head *hd, struct flist *after,
-			       struct flist *insertee);
+extern void flist_insert_after(struct flist_head *hd, void *after,
+			       void *insertee);
 
 /**
  * Insert an element at the front of a list.
  *
  * \param hd        Pointer to the head of the list.
- * \param insertee  Pointer to the list node to insert.
+ * \param insertee  Object to insert.
  */
-extern void flist_push_front(struct flist_head *hd, struct flist *insertee);
+extern void flist_push_front(struct flist_head *hd, void *insertee);
 
 /**
  * Remove the first element of the list.
@@ -105,7 +100,7 @@ extern void flist_push_front(struct flist_head *hd, struct flist *insertee);
  * \param hd  Pointer to the head of the list.
  * \return Pointer to the first element in the list.
  */
-extern struct flist *flist_pop_front(struct flist_head *hd);
+extern void *flist_pop_front(struct flist_head *hd);
 
 /**
  * Insert an entire list into the list hd after the element after. The head
@@ -117,7 +112,7 @@ extern struct flist *flist_pop_front(struct flist_head *hd);
  * \param splicee  Pointer to the list to insert. Invalidated by calling this
  *                 function.
  */
-extern void flist_splice(struct flist_head *hd, struct flist *after,
+extern void flist_splice(struct flist_head *hd, void *after,
 			 struct flist_head *splicee);
 
 /**
@@ -126,10 +121,8 @@ extern void flist_splice(struct flist_head *hd, struct flist *after,
  *
  * \param hd      Pointer to the head of the list.
  * \param f       Pointer to the function to apply to each element.
- * \param offset  The offset of the list member in the enclosing data structure.
  */
-extern void flist_for_each(struct flist_head *hd, void (*f)(void *data),
-			   ptrdiff_t offset);
+extern void flist_for_each(struct flist_head *hd, void (*f)(void *data));
 
 /**
  * Execute a function on each element in the list in the range [first, last).
@@ -137,13 +130,35 @@ extern void flist_for_each(struct flist_head *hd, void (*f)(void *data),
  *
  * \param hd      Pointer to the head of the list.
  * \param f       Pointer to the functiuon to apply to each element.
- * \param offset  The offset of the list member in the enclosing data structure.
  * \param first   Pointer to the first element to apply the function to.
  * \param last    Pointer to the element after the last element on which the
  *                function will be called.
  */
 extern void flist_for_each_range(struct flist_head *hd, void (*f)(void *data),
-				 ptrdiff_t offset, struct flist *first,
-				 struct flist *last);
+				 void *first,void *last);
+
+/**
+ * Get the first element in a list from the list head.
+ * 
+ * \param hd  Head of the list
+ * \return The first element in the list
+ */
+static inline void *flist_first(struct flist_head *hd)
+{
+	return hd->first ? (void*)((uintptr_t)hd->first - hd->offset) : NULL;
+}
+
+/**
+ * Get the next element in a list given a current element.
+ *
+ * \param hd    The head of the list.
+ * \param elem  The element we are at now.
+ * \return The next element in the list
+ */
+static inline void *flist_next(struct flist_head *hd, void *elem)
+{
+	struct flist *e = (struct flist *)((uintptr_t)elem + hd->offset);
+	return e->next ? (void*)((uintptr_t)e->next - hd->offset) : NULL;
+}
 
 #endif /* STRUCT_FLIST_H */

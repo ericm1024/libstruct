@@ -29,7 +29,7 @@
 #include <stdbool.h>
 
 /* size of test lists */
-#define data_length 100
+#define data_length 10000
 
 struct point_t {
 	int x;
@@ -80,16 +80,15 @@ static void gen_test_data(struct point_t *control, size_t size)
 
 /* assert equality of an array and test list */
 static void assert_equal(struct point_t *control, struct flist_head *hd,
-			   size_t size, const char *msg)
+			 size_t size, const char *msg)
 {
 	/* test for size */
 	ASSERT_TRUE(hd->length == size, msg);
 	
 	/* test for correct data and ordering */
-	struct flist *l = hd->first;
-	for (size_t i = 0; i < size; i++, l = l->next) {
-		ASSERT_TRUE(point_equal(container_of(l, struct point_t, l), 
-					&control[i]), msg);
+	struct point_t *l = flist_first(hd);
+	for (size_t i = 0; i < size; i++, l = flist_next(hd, l)) {
+		ASSERT_TRUE(point_equal(l, &control[i]), msg);
 	}
 	
 	/* test for null termination */
@@ -102,7 +101,7 @@ static void assert_equal(struct point_t *control, struct flist_head *hd,
 #define INIT_TEST_DATA(controll_name, test_name, size)			\
 	struct point_t controll_name[(size)];				\
 	gen_test_data(controll_name, (size));				\
-        FLIST_HEAD(test_name);
+        FLIST_HEAD(test_name, struct point_t, l);
 
 /***************************************
  *               TESTS                 *
@@ -114,18 +113,18 @@ void test_flist_insert_after_1()
 {
 	INIT_TEST_DATA(controll, test_list, data_length);
 	
-	struct flist *prev = test_list.first;
+	void *prev = flist_first(&test_list);
 
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *next = copy_point(&(controll[i]));
-		flist_insert_after(&test_list, prev, &(next->l));
-		prev = &(next->l);
+		flist_insert_after(&test_list, prev, next);
+		prev = next;
 	}
 
 	assert_equal(controll, &test_list, data_length,
 		    "test_flist_insert_after_1: got invalid list.\n");
 	 
-	flist_for_each(&test_list, &free, offsetof(struct point_t, l));
+	flist_for_each(&test_list, &free);
 }
 
 /* 2: construct a list in reverse order using flist_insert_after */
@@ -137,14 +136,14 @@ void test_flist_insert_after_many()
 	for (size_t i = 0; i < data_length; i++ ) {
 		struct point_t *next =
 		      copy_point(&controll[data_length - (i+1)]);
-		flist_insert_after(&test_list, NULL, &(next->l));
+		flist_insert_after(&test_list, NULL, next);
 	}
 
 	/* test for equality */
 	assert_equal(controll, &test_list, data_length,
 		      "test_flist_insert_after_2: got invalid list.\n");
 	/* cleanup */
-	flist_for_each(&test_list, &free, offsetof(struct point_t, l));
+	flist_for_each(&test_list, &free);
 }
 
 /* push front tests */
@@ -155,13 +154,13 @@ void test_flist_push_front_1()
 
 	/* push front 1 element */
 	struct point_t *t = copy_point(control);
-	flist_push_front(&test_list, &(t->l));
+	flist_push_front(&test_list, t);
 
 	/* test for equality */
 	assert_equal(control, &test_list, 1,
 		     "test_flist_push_front_1: got invalid list.\n");
 	/* cleanup */
-	flist_for_each(&test_list, &free, offsetof(struct point_t, l));
+	flist_for_each(&test_list, &free);
 }
 
 /* 2: push front lots of elements */
@@ -170,12 +169,12 @@ void test_flist_push_front_many()
 	INIT_TEST_DATA(control, test_list, data_length);
 
 	for (size_t i = 0; i < data_length; i++) {
-		struct point_t *copy = copy_point(&(control[data_length - (i+1)]));
-		flist_push_front(&test_list, &(copy->l));
+		struct point_t *copy = copy_point(&control[data_length - (i+1)]);
+		flist_push_front(&test_list, copy);
 	}
 	assert_equal(control, &test_list, data_length,
 		     "test_push_front_2: got invalid list.\n");
-	flist_for_each(&test_list, &free, offsetof(struct point_t, l));
+	flist_for_each(&test_list, &free);
 }
 	
 /* pop front tests */
@@ -186,36 +185,36 @@ void test_flist_pop_front_1()
 
 	/* push front 1 element */
 	struct point_t *t = copy_point(control);
-	flist_push_front(&test_list, &(t->l));
+	flist_push_front(&test_list, t);
 
 	/* pop one */
-	struct flist *popped = flist_pop_front(&test_list);
+	struct point_t *popped = flist_pop_front(&test_list);
 	
-	ASSERT_TRUE(point_equal(container_of(popped, struct point_t, l), &control[0]),
+	ASSERT_TRUE(point_equal(popped, &control[0]),
 		    "test_pop_front_1: popped does not match pushed.\n");
 	ASSERT_TRUE(test_list.first == NULL,
 		    "test_pop_front_1: test_list->first was not null after popping only element");
 	ASSERT_TRUE(test_list.length == 0,
 		    "test_pop_front_1: test_list->length was not zero after popping only element");
-	free(container_of(popped, struct point_t, l));
+	free(popped);
 }
 
 /* 2: pop many elements */
 void test_flist_pop_front_many()
 {
+	struct point_t *tmp;
 	INIT_TEST_DATA(control, test_list, data_length);
 	
 	for (size_t i = 0; i < data_length; i++) {
-		struct point_t *copy = copy_point(&(control[data_length - (i+1)]));
-		flist_push_front(&test_list, &(copy->l));
+		tmp = copy_point(&control[data_length - (i+1)]);
+		flist_push_front(&test_list, tmp);
 	}
 
 	for (size_t i = 0; i < data_length; i++) {
-		struct flist *popped = flist_pop_front(&test_list);
-		ASSERT_TRUE(point_equal(container_of(popped, struct point_t, l),
-					&control[i]),
+		tmp = flist_pop_front(&test_list);
+		ASSERT_TRUE(point_equal(tmp, &control[i]),
 			    "test_pop_front_2: *popped was not equal to control[i]");
-		free(container_of(popped, struct point_t, l));
+		free(tmp);
 	}
 	ASSERT_TRUE(test_list.first == NULL,
 		    "test_pop_front_2: test_list->first was not null after "
@@ -228,17 +227,18 @@ void test_flist_pop_front_many()
 /* splice test */
 void test_flist_splice()
 {
+	struct point_t *copy;
 	INIT_TEST_DATA(control, test_list, data_length);
 	INIT_TEST_DATA(control2, test_list2, data_length);
 
 	/* generate the two test lists */
 	for (size_t i = 0; i < data_length; i++) {
-		struct point_t *copy = copy_point(&(control[data_length - (i+1)]));
-		flist_push_front(&test_list, &(copy->l));
+		copy = copy_point(&control[data_length - (i+1)]);
+		flist_push_front(&test_list, copy);
 	}
 	for (size_t i = 0; i < data_length; i++) {
-		struct point_t *copy = copy_point(&(control2[data_length - (i+1)]));
-		flist_push_front(&test_list2, &(copy->l));
+		copy = copy_point(&control2[data_length - (i+1)]);
+		flist_push_front(&test_list2, copy);
 	}	
 	
 	/* splice the control data by hand */
@@ -253,8 +253,9 @@ void test_flist_splice()
 	}
 
 	/* get the element to splice at and do the splice */
-	struct flist *where = test_list.first;
-	for (size_t i = 0; i < data_length/2 - 1; i++, where = where->next)
+	struct point_t *where = flist_first(&test_list);
+	for (size_t i = 0; i < data_length/2 - 1; i++, 
+		     where = flist_next(&test_list, where))
 		;
 	flist_splice(&test_list, where, &test_list2);
 
@@ -267,7 +268,7 @@ void test_flist_splice()
 		    "test_splice: test_list2.length was not zero\n");
 
 	/* clean up */
-	flist_for_each(&test_list, &free, offsetof(struct point_t, l));
+	flist_for_each(&test_list, &free);
 }
 
 /* for each is tested in each test with &free, correctness confirmed my 
@@ -280,8 +281,8 @@ void test_flist_for_each_range()
 
 	/* initialize the test list */
 	for (size_t i = 0; i < data_length; i++) {
-		struct point_t *copy = copy_point(&(control[data_length - (i+1)]));
-		flist_push_front(&test_list, &(copy->l));
+		struct point_t *copy = copy_point(&control[data_length - (i+1)]);
+		flist_push_front(&test_list, copy);
 	}
 
 	/* mutate the original data */
@@ -291,24 +292,24 @@ void test_flist_for_each_range()
 
 	/* get pointers to the list elements at the start and end of the
 	 * mutation range */
-	struct flist *start = test_list.first;
-	for (size_t i = 0; i < data_length/4; start = start->next, i++)
+	struct point_t *start = flist_first(&test_list);
+	for (size_t i = 0; i < data_length/4; 
+	     start = flist_next(&test_list, start), i++)
 		;
-	struct flist *end = start;
+	struct point_t *end = start;
 	for (size_t i = 0; i < 3*(data_length/4) - data_length/4;
-	     end = end->next, i++)
+	     end = flist_next(&test_list, end), i++)
 		;
 
 	flist_for_each_range(&test_list, (void (*)(void *))&mutate_point,
-			     offsetof(struct point_t, l), start, end);
+			     start, end);
 
 	/* check for correctness */
 	assert_equal(control, &test_list, data_length,
 		     "test_for_each_range: got invalid list.\n");
 	
 	/* clean up (and use flist_for_each_range again) */
-	flist_for_each_range(&test_list, &free, offsetof(struct point_t, l),
-			     test_list.first, NULL);
+	flist_for_each_range(&test_list, &free, flist_first(&test_list), NULL);
 }
 
 int main(int argc, char **argv)

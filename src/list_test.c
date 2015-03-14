@@ -89,29 +89,28 @@ static void assert_equal(struct point_t *control, struct list_head *hd,
 	ASSERT_TRUE(hd->length == size, "assert_equal: bad size.\n");
 	
 	/* test for correct data and ordering */
-	struct list *l = hd->first;
-	ASSERT_TRUE(!l->prev, "assert_equal: first->prev was not null.\n");
+	struct point_t *l = list_first(hd);
+	ASSERT_TRUE(list_prev(hd, l), "assert_equal: first->prev was not null.\n");
 
-	struct list *prev = NULL;
-	for (size_t i = 0; i < size; i++, l = l->next) {
-		ASSERT_TRUE(point_equal(container_of(l, struct point_t, l),
-					&(control[i])), msg);
-		ASSERT_TRUE(l->prev == prev,
+	struct point_t *prev = NULL;
+	for (size_t i = 0; i < size; i++, l = list_next(hd,l)) {
+		ASSERT_TRUE(point_equal(l, &control[i]), msg);
+		ASSERT_TRUE(list_prev(hd, l) == prev,
 			    "assert_equal: bad list->prev ptr.\n");
 		prev = l;
 	}
 	
 	/* test for null termination */
-	ASSERT_TRUE(!l, "assert_equal: last->next was not null.\n");
+	ASSERT_TRUE(!list_next(hd,l), "assert_equal: last->next was not null.\n");
 }
 
  /**** more generic testing macros ****/
 
  /* VERY UNSAFE MACRO. DO NOT USE IN CONDITIONAL CODE */
-#define INIT_TEST_DATA(controll_name, test_name, size)          \
+#define INIT_TEST_DATA(controll_name, test_name, size)			\
 	struct point_t controll_name[(size)];				\
-	gen_test_data(controll_name, (size));			\
-        LIST_HEAD(test_name);
+	gen_test_data(controll_name, (size));				\
+        LIST_HEAD(test_name, struct point_t, l);
 
 /***************************************
  *               TESTS                 *
@@ -123,15 +122,15 @@ void test_list_insert_before_many()
 	INIT_TEST_DATA(control, tlist, data_length);
 
 	struct point_t *insertee = copy_point(&control[data_length - 1]);
-	list_insert_before(&tlist, tlist.first, &(insertee->l));
+	list_insert_before(&tlist, list_first(&tlist), insertee);
 	for (size_t i = 0; i < data_length - 1; i++) {
-		insertee = copy_point(&(control[i]));
-		list_insert_before(&tlist, tlist.last, &(insertee->l));
+		insertee = copy_point(&control[i]);
+		list_insert_before(&tlist, list_first(&tlist), insertee);
 	}
 	
 	assert_equal(control, &tlist, data_length,
 		"test_list_insert_before_many: got invalid list\n.");
-	list_for_each(&tlist, &free, offsetof(struct point_t, l));
+	list_for_each(&tlist, &free);
 }
 
 void test_list_insert_before_null()
@@ -139,13 +138,13 @@ void test_list_insert_before_null()
 	INIT_TEST_DATA(control, tlist, data_length);
 
 	for (size_t i = 0; i < data_length; i++) {
-		struct point_t *insertee = copy_point(&(control[i]));
-		list_insert_before(&tlist, NULL, &(insertee->l));
+		struct point_t *insertee = copy_point(&control[i]);
+		list_insert_before(&tlist, NULL, insertee);
 	}
 
 	assert_equal(control, &tlist, data_length,
 		     "test_list_insert_before_null: got invalid list\n.");
-	list_for_each(&tlist, &free, offsetof(struct point_t, l));
+	list_for_each(&tlist, &free);
 }
 
 /* insert after tests */
@@ -153,17 +152,16 @@ void test_list_insert_after_many()
 {
 	INIT_TEST_DATA(control, tlist, data_length);
 
-	struct point_t *insertee = copy_point(&(control[0]));
-	list_insert_after(&tlist, tlist.first, &(insertee->l));
+	struct point_t *insertee = copy_point(&control[0]);
+	list_insert_after(&tlist, tlist.first, insertee);
 	for (size_t i = 1; i < data_length; i++) {
-		insertee = copy_point(&(control[data_length - i]));
-		list_insert_after(&tlist, tlist.first, &(insertee->l));
+		insertee = copy_point(&control[data_length - i]);
+		list_insert_after(&tlist, tlist.first, insertee);
 	}
 	
 	assert_equal(control, &tlist, data_length,
 		    "test_list_insert_after_many: got invalid list\n.");
-	list_for_each_range(&tlist, &free, offsetof(struct point_t, l), tlist.first,
-		NULL);
+	list_for_each_range(&tlist, &free, list_first(&tlist), NULL);
 }		
 
 void  test_list_insert_after_null()
@@ -171,14 +169,13 @@ void  test_list_insert_after_null()
 	INIT_TEST_DATA(control, tlist, data_length);
 	
 	for (size_t i = 1; i <= data_length; i++) {
-		struct point_t *insertee = copy_point(&(control[data_length - i]));
-		list_insert_after(&tlist, NULL, &(insertee->l));
+		struct point_t *insertee = copy_point(&control[data_length - i]);
+		list_insert_after(&tlist, NULL, insertee);
 	}
 	
 	assert_equal(control, &tlist, data_length,
 		"test_list_insert_after_null: got invalid list\n.");
-	list_for_each_range(&tlist, &free, offsetof(struct point_t, l), tlist.first,
-		NULL);
+	list_for_each_range(&tlist, &free, list_first(&tlist), NULL);
 }
 
 /* delete test */
@@ -188,17 +185,17 @@ void test_list_delete()
 
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *insertee = copy_point(&control[i]);
-		list_push_back(&tlist, &(insertee->l));
+		list_push_back(&tlist, insertee);
 	}
 
 	size_t j = 0;
-	for (struct list *k = tlist.first; k; j++) {
-		struct list *next = k->next;
+	for (struct point_t *k = list_first(&tlist); k; j++) {
+		struct point_t *next = list_next(&tlist, k);
 		list_delete(&tlist, k);
-		ASSERT_TRUE(point_equal(container_of(k, struct point_t, l), &(control[j])),
+		ASSERT_TRUE(point_equal(k, &control[j]),
 			  "test_list_delete: list created in wrong order.\n");
 		/* the bulk of this test is really done by valgrind */
-			    free(container_of(k, struct point_t, l));
+		free(k);
 		k = next;
 	}
 }
@@ -210,12 +207,12 @@ void test_list_push_front()
 
 	for (int i = data_length - 1; i >= 0; i--) {
 		struct point_t *insertee = copy_point(&control[i]);
-		list_push_front(&tlist, &(insertee->l));
+		list_push_front(&tlist, insertee);
 	}
 
 	assert_equal(control, &tlist, data_length,
-				"test_list_push_front: got invalid list.\n");
-	list_for_each(&tlist, &free, offsetof(struct point_t, l));
+		     "test_list_push_front: got invalid list.\n");
+	list_for_each(&tlist, &free);
 }
 
 /* push back test */
@@ -225,12 +222,12 @@ void  test_list_push_back()
 
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *insertee = copy_point(&control[i]);
-		list_push_back(&tlist, &(insertee->l));
+		list_push_back(&tlist, insertee);
 	}
 
 	assert_equal(control, &tlist, data_length,
 		     "test_list_push_back: got invalid list.\n");
-	list_for_each(&tlist, &free, offsetof(struct point_t, l));
+	list_for_each(&tlist, &free);
 }
 
 /* pop front test */
@@ -240,15 +237,14 @@ void test_list_pop_front()
 
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *insertee = copy_point(&control[i]);
-		list_push_back(&tlist, &(insertee->l));
+		list_push_back(&tlist, insertee);
 	}
 
 	for (size_t i = 0; i < data_length; i++) {
-		struct list *popped = list_pop_front(&tlist);
-		ASSERT_TRUE(point_equal(container_of(popped, struct point_t, l),
-					&(control[i])),
+		struct point_t *popped = list_pop_front(&tlist);
+		ASSERT_TRUE(point_equal(popped, &control[i]),
 			    "test_list_pop_front: popped didn't match control[i]");
-		free(container_of(popped, struct point_t, l));
+		free(popped);
 	}
 
 	ASSERT_TRUE(tlist.first == NULL,
@@ -266,16 +262,14 @@ void test_list_pop_back()
 
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *insertee = copy_point(&control[i]);
-		list_push_back(&tlist, &(insertee->l));
+		list_push_back(&tlist, insertee);
 	}
 
-	size_t ret = 0;
 	for (int i = data_length - 1; i >= 0; i--) {
-		struct list *popped = list_pop_back(&tlist);
-		ASSERT_TRUE(point_equal(container_of(popped, struct point_t, l),
-					&(control[i])),
+		struct point_t *popped = list_pop_back(&tlist);
+		ASSERT_TRUE(point_equal(popped, &control[i]),
 		     "test_list_pop_back: popped didn't match control[i]");
-		free(container_of(popped, struct point_t, l));
+		free(popped);
 	}
 
 	ASSERT_TRUE(tlist.first == NULL,
@@ -296,13 +290,13 @@ void test_list_splice_end()
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *insertee = copy_point(&control[i]);
 		struct point_t *insertee_copy = copy_point(&control[i]);
-		list_push_back(&control_tlist, &(insertee_copy->l));
+		list_push_back(&control_tlist, insertee_copy);
 		if (i < data_length/3) {
 			slice_of_control[i] = control[i];
-			list_push_back(&slice_of_tlist, &(insertee->l));
+			list_push_back(&slice_of_tlist, insertee);
 		} else {
 			rest_of_control[i - data_length/3] = control[i];
-			list_push_back(&rest_of_tlist, &(insertee->l));
+			list_push_back(&rest_of_tlist, insertee);
 		}
 	}
 
@@ -310,7 +304,8 @@ void test_list_splice_end()
 
 	/* sanity check (i.e. does push back work?) */
 	assert_equal(control, &control_tlist, data_length,
-				   "test_list_splice_end: invalid control list.\n");
+		     "test_list_splice_end: invalid control list.\n");
+
 	/* correctness checks */
 	assert_equal(control, &slice_of_tlist, data_length,
 		     "test_list_splice_end: bad list after splicing.\n");
@@ -321,9 +316,8 @@ void test_list_splice_end()
 	ASSERT_TRUE(rest_of_tlist.length == 0,
 		    "test_list_splice_end: splicee was not invalidated.\n");
 
-	list_for_each(&slice_of_tlist, &free, offsetof(struct point_t, l));
-	list_for_each_range(&control_tlist, &free, offsetof(struct point_t, l),
-			    control_tlist.first, NULL);
+	list_for_each(&slice_of_tlist, &free);
+	list_for_each_range(&control_tlist, &free, control_tlist.first, NULL);
 }
 
 void test_list_splice_middle()
@@ -336,28 +330,29 @@ void test_list_splice_middle()
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *insertee = copy_point(&control[i]);
 		struct point_t *insertee_copy = copy_point(&control[i]);
-		list_push_back(&control_tlist, &(insertee_copy->l));
+		list_push_back(&control_tlist, insertee_copy);
 
 		/* push back the first data_length/3 elemenets onto rest_of_tlist */
 		if (i < data_length/3) {
 			rest_of_control[i] = control[i];
-			list_push_back(&rest_of_tlist, &(insertee->l));
+			list_push_back(&rest_of_tlist, insertee);
 		}
 		/* push back the next splice_size elements onto middle_of_tlist */
 		else if (i < data_length/3 + splice_size){
 			middle_of_control[i - data_length/3] = control[i];
-			list_push_back(&middle_of_tlist, &(insertee->l));
+			list_push_back(&middle_of_tlist, insertee);
 		}
 		/* push back the remaining elements onto rest_of_tlist */
 		else {
 			rest_of_control[i - splice_size] = control[i];
-			list_push_back(&rest_of_tlist, &(insertee->l));
+			list_push_back(&rest_of_tlist, insertee);
 		}
 	}
 
 	/* grab the element in rest_of_tlist to splice after */
-	struct list *where = rest_of_tlist.first;
-	for (size_t i = 1; i < data_length/3; i++, where = where->next)
+	struct point_t *where = list_first(&rest_of_tlist);
+	for (size_t i = 1; i < data_length/3; 
+	     i++, where = list_next(&rest_of_tlist, where))
 		;
 
 	/* splice the list */
@@ -376,9 +371,8 @@ void test_list_splice_middle()
 	ASSERT_TRUE(middle_of_tlist.length == 0,
 		    "test_list_splice_midde: splicee was not invalidated.\n");
 
-	list_for_each(&rest_of_tlist, &free, offsetof(struct point_t, l));
-	list_for_each_range(&control_tlist, &free, offsetof(struct point_t, l),
-			    control_tlist.first, NULL);
+	list_for_each(&rest_of_tlist, &free);
+	list_for_each_range(&control_tlist, &free, control_tlist.first, NULL);
 }
 
 void test_list_splice_none()
@@ -387,15 +381,15 @@ void test_list_splice_none()
 
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *insertee = copy_point(&control[i]);
-		list_push_back(&tlist, &(insertee->l));
+		list_push_back(&tlist, insertee);
 	}
 
-	LIST_HEAD(empty);
+	LIST_HEAD(empty, struct point_t, l);
 	list_splice(&tlist, tlist.first->next, &empty);
 	assert_equal(control, &tlist, data_length,
 		     "test_list_splice_none: invalid control list.\n");
 
-	list_for_each(&tlist, &free, offsetof(struct point_t, l));
+	list_for_each(&tlist, &free);
 }
 
 /* for each (no actual test, tested in other tests) by calling free */
@@ -408,7 +402,7 @@ void test_list_for_each_range()
 	/* initialize the test list */
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *copy = copy_point(&control[i]);
-		list_push_back(&tlist, &(copy->l));
+		list_push_back(&tlist, copy);
 	}
 
 	/* mutate the original data */
@@ -420,22 +414,21 @@ void test_list_for_each_range()
 	}
 
 	/* get pointers to the start and end of the mutation range */
-	struct list *start = tlist.first;
-	for (size_t i = 0; i < mstart; start = start->next, i++)
+	struct point_t *start = list_first(&tlist);
+	for (size_t i = 0; i < mstart; start = list_next(&tlist, start), i++)
 		;
-	struct list *end = start;
-	for (size_t i = 0; i < mend - mstart; end = end->next, i++)
+	struct point_t *end = start;
+	for (size_t i = 0; i < mend - mstart; end = list_next(&tlist, end), i++)
 		;
 
-	list_for_each_range(&tlist, (void (*)(void *))&mutate_point, offsetof(struct point_t, l), start, end);
+	list_for_each_range(&tlist, (void (*)(void *))&mutate_point, start, end);
 
 	/* check for correctness */
 	assert_equal(control, &tlist, data_length,
 		     "test_for_each_range: gor invalid list.\n");
 
 	/* clean up */
-	list_for_each_range(&tlist, &free, offsetof(struct point_t, l),
-			    tlist.first, NULL);
+	list_for_each_range(&tlist, &free, list_first(&tlist), NULL);
 }
 
 /* reverse */
@@ -447,7 +440,7 @@ void test_list_reverse()
 	/* initialize the test list */
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *copy = copy_point(&control[i]);
-		list_push_back(&tlist, &(copy->l));
+		list_push_back(&tlist, copy);
 	}
 
 	/* initialize the reversed control */
@@ -471,7 +464,7 @@ void test_list_reverse()
 	assert_equal(control, &tlist, data_length,
 		     "test_list_reverse: list does not match control"
 		     " after reversing twice.\n");
-	list_for_each(&tlist, &free, offsetof(struct point_t, l));
+	list_for_each(&tlist, &free);
 }
 
 /* main */
