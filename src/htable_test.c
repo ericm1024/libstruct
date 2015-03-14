@@ -36,7 +36,7 @@
  *       about you, but I don't have that much memory.
  */
 
-static const size_t n = 100;
+#define n 100
 struct value { int x; int y; };	
 
 /* 

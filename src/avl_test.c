@@ -124,7 +124,7 @@ int point_cmp(void *lhs, void *rhs)
 
 /**** tests ****/
 
-static const size_t n = 200;
+#define n 200
 
 void test_insert()
 {
