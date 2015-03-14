@@ -72,15 +72,15 @@ static inline int get_bit(bloom_t *bf, size_t biti)
 }
 
 /* never look at this function its terrible */
-static int fallback_seed_rng()
+static bool fallback_seed_rng()
 {
 	pcg128_t seed = (pcg128_t)(uintptr_t)&seed; /* ASLR. not my idea */
 	pcg64_srandom(seed, seed); /* ugh */
-	return 0;
+	return true;
 }
 
 /* TODO: do something reasonable if reading /dev/random fails */
-static int seed_rng()
+static bool seed_rng()
 {
 	int fd;
 	pcg128_t seeds[2];
@@ -94,13 +94,13 @@ static int seed_rng()
 		return fallback_seed_rng();;
 	
 	pcg64_srandom(seeds[0], seeds[1]);
-	return 0;
+	return true;
 }
 
-int bloom_init(bloom_t *bf)
+bool bloom_init(bloom_t *bf)
 {
-	if (seed_rng() != 0)
-		return 1;
+	if (!seed_rng())
+		return false;
 	
 	/*
 	 * Here we need to pick good values for the size of the filter table
@@ -147,12 +147,12 @@ int bloom_init(bloom_t *bf)
 	/* try to alocate both arrays */
 	bf->bits = (long*)malloc(sizeof(long)*bf->bsize);
 	if (!bf->bits)
-		return 1;
+		return false;
 	
 	bf->seeds = (uint64_t*)malloc(sizeof(uint64_t)*bf->nhash);
 	if (!bf->seeds) {
 		free(bf->bits);
-		return 1;
+		return false;
 	}
 
 	memset(bf->bits, 0, sizeof(long)*bf->bsize);
@@ -160,7 +160,8 @@ int bloom_init(bloom_t *bf)
 	/* generate seeds for the hash functions */
 	for (size_t i = 0; i < bf->nhash; i++)
 		bf->seeds[i] = pcg64_random();
-	return 0;
+
+	return true;
 }
 
 void bloom_destroy(bloom_t *bf)
@@ -179,12 +180,12 @@ void bloom_insert(bloom_t *bf, uint64_t key)
 	}
 }
 
-int bloom_query(bloom_t *bf, uint64_t key)
+bool bloom_query(bloom_t *bf, uint64_t key)
 {
 	for (size_t i = 0; i < bf->nhash; i++) {
 		uint64_t hash = fasthash64(&key, sizeof(key), bf->seeds[i]);
 		if (!get_bit(bf, hash % bf->nbits))
-			return 1;
+			return false;
 	}
-	return 0;
+	return true;
 }

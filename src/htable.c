@@ -57,10 +57,14 @@
 /*
  * TODO: handle this better. We can hack memory allignment ourselves, I'm just
  * being lazy for the first pass.
+ *
+ * BUG: OSX has posix_memalign but does not define these macros.
  */
+/*
 #if _POSIX_C_SOURCE < 200112L && _XOPEN_SOURCE < 600
 #error "Error. Don't have posix_memalign"
-#endif
+#endif 
+*/
 
 /**
  * \def
@@ -421,7 +425,6 @@ out:
 /* resize the hash table to the new size */
 static bool resize(htable_t *ht, size_t new_size)
 {
-	printf("resize: entering.\n");
 	assert(new_size * 2 * BUCKET_SIZE > ht->entries);
 	htable_t new_ht; /* tmp hash table head */
 	new_ht.size = new_size;

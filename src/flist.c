@@ -23,24 +23,26 @@
 
 #include "flist.h"
 #include <assert.h>
+#include <stdbool.h>
 
 static inline void link3(struct flist *a, struct flist *b, struct flist *c)
 {
-	if ( a )
+	if (a)
 		a->next = b;
-	if ( b )
+	if (b)
 		b->next = c;
 }
 
-static inline int is_empty(struct flist_head *hd)
+static inline bool is_empty(struct flist_head *hd)
 {
-	return hd->length == 0 && hd->first == NULL ? 1 : 0;
+	return hd->length == 0 && hd->first == NULL ? true : false;
 }
 
 static inline struct flist *get_last(struct flist_head *hd)
 {
 	struct flist *last;
-	for (last = hd->first; last->next != NULL; last = last->next) {}
+	for (last = hd->first; last->next; last = last->next)
+		;
 	return last;
 }
 
@@ -75,7 +77,7 @@ struct flist *flist_pop_front(struct flist_head *hd)
 	assert(hd);
 
 	struct flist *first = hd->first;
-	if ( first )
+	if (first)
 		hd->first = first->next;
 	hd->length--;
 	return first;
@@ -88,7 +90,7 @@ void flist_splice(struct flist_head *hd, struct flist *after,
 	assert(after);
 	assert(splicee);
   
-	if ( is_empty(splicee) )
+	if (is_empty(splicee))
 		return;
 
 	struct flist *last = get_last(splicee);
@@ -109,7 +111,8 @@ void flist_for_each(struct flist_head *hd, void (*f)(void *data),
   assert(offset >= 0);
 
   for (struct flist *i = hd->first; i != NULL; ) { 
-	  /* We need to grab the next element in the list *before* we call the
+	  /*
+	   * We need to grab the next element in the list *before* we call the
 	   * function on the current element because the function could
 	   * invalidate the current element, in which case itterating with
 	   * i = i->next would cause undefined behavior. An example of such a
@@ -129,7 +132,7 @@ void flist_for_each_range(struct flist_head *hd, void (*f)(void *data),
   assert(first);
   assert(f);
 
-  for (struct flist *i = first; i != last && i != NULL; ) {
+  for (struct flist *i = first; i && i != last; ) {
 	  /* see comment in flist_for_each */ 
 	  struct flist *next = i->next;
 	  f( (void *)((char *)i - offset) );

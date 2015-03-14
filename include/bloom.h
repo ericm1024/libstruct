@@ -64,6 +64,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 /* bloom filter */
 typedef struct bloom {
@@ -105,9 +106,9 @@ typedef struct bloom {
 /**
  * \brief Initialize a bloom filter.
  * \param bf  The filter to initialize.
- * \return 0 on sucess, 1 if memory allocation failed.
+ * \return true on sucess, false on allocation failure.
  */
-extern int bloom_init(bloom_t *bf);
+extern bool bloom_init(bloom_t *bf);
 
 /**
  * \brief Destroy a bloom filter.
@@ -127,8 +128,8 @@ extern void bloom_insert(bloom_t *bf, uint64_t key);
  * \brief Query a bloom filter for the existence of a key.
  * \param bf  The bloom filter to query.
  * \param key  The key to query for.
- * \return 0 if the key probably exists, 1 if it definitely does not. 
+ * \return true if the key probably exists, false if it definitely does not. 
  */
-extern int bloom_query(bloom_t *bf, uint64_t key);
+extern bool bloom_query(bloom_t *bf, uint64_t key);
 
 #endif /* STRUCT_BLOOM_H */

@@ -81,12 +81,12 @@ static inline void make_black(rb_node_t *n)
 		MAKE_BLACK(n);
 }
 
-static inline unsigned long is_black(rb_node_t *n)
+static inline bool is_black(rb_node_t *n)
 {
 	return !n || IS_BLACK(n);
 }
 
-static inline unsigned long is_red(rb_node_t *n)
+static inline bool is_red(rb_node_t *n)
 {
 	return n && IS_RED(n);
 }

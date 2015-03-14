@@ -4,6 +4,8 @@ INCLUDE = ../include
 RNG = ./pcg-c-master
 CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
 TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test
+#VALGRIND = valgrind --leak-check=full
+VALGRIND = ""
 
 vpath %.h $(INCLUDE)
 vpath %.h $(RNG)/include
@@ -14,12 +16,12 @@ clean:
 	rm -f *.o *~ $(TARGETS)
 
 test: $(TARGETS)
-	valgrind --leak-check=full ./flist_test
-#	valgrind --leak-check=full ./list_test
-	valgrind --leak-check=full ./avl_test
-	valgrind --leak-check=full ./htable_test
-	valgrind --leak-check=full --max-stackframe=20000000 ./bloom_test
-	valgrind --leak-check=full ./rbtree_test
+	$(VALGRIND)./flist_test
+	$(VALGRIND)./list_test
+	$(VALGRIND)./avl_test
+	$(VALGRIND)./htable_test
+	$(VALGRIND)./bloom_test
+	$(VALGRIND)./rbtree_test
 
 flist_test: flist_test.o flist.o
 	$(CC) $(CFLAGS) -o $@ $^
@@ -39,31 +41,31 @@ bloom_test: bloom_test.o bloom.o test.o fasthash.o
 rbtree_test: rbtree_test.o rbtree.o test.o
 	$(CC) $(CFLAGS) -lm -o $@ $^
 
-flist_test.o: flist_test.c flist.h libstruct.h
+flist_test.o: flist_test.c flist.h
 	$(CC) $(CFLAGS) -c $<
 
-flist.o: flist.c flist.h libstruct.h
+flist.o: flist.c flist.h
 	$(CC) $(CFLAGS) -c $<
 
-list_test.o: list_test.c list.h libstruct.h
+list_test.o: list_test.c list.h
 	$(CC) $(CFLAGS) -c $<
 
-list.o: list.c list.h libstruct.h
+list.o: list.c list.h
 	$(CC) $(CFLAGS) -c $<
 
-avl_test.o: avl_test.c avl_tree.h libstruct.h
+avl_test.o: avl_test.c avl_tree.h
 	$(CC) $(CFLAGS) -c $<
 
-avl_tree.o: avl_tree.c avl_tree.h bitops.h libstruct.h
+avl_tree.o: avl_tree.c avl_tree.h bitops.h
 	$(CC) $(CFLAGS) -c $<
 
 test.o: test.c test.h
 	$(CC) $(CFLAGS) -c $<
 
-htable_test.o: htable_test.c htable.h libstruct.h
+htable_test.o: htable_test.c htable.h
 	$(CC) $(CFLAGS) -c $<
 
-htable.o: htable.c htable.h libstruct.h fasthash.h murmurhash.h
+htable.o: htable.c htable.h fasthash.h murmurhash.h
 	$(CC) $(CFLAGS) -c $<
 
 fasthash.o: fasthash.c fasthash.h
@@ -72,16 +74,16 @@ fasthash.o: fasthash.c fasthash.h
 murmurhash.o: murmurhash.c murmurhash.h
 	$(CC) $(CFLAGS) -c $<
 
-btree.o: btree.c btree.h libstruct.h
+btree.o: btree.c btree.h
 	$(CC) $(CFLAGS) -c $<
 
-bloom.o: bloom.c bloom.h libstruct.h fasthash.h
+bloom.o: bloom.c bloom.h fasthash.h
 	$(CC) $(CFLAGS) -c $<
 
-bloom_test.o: bloom_test.c bloom.c bloom.h libstruct.h test.h
+bloom_test.o: bloom_test.c bloom.c bloom.h test.h
 	$(CC) $(CFLAGS) -c $<
 
-rbtree.o: rbtree.c rbtree.h libstruct.h
+rbtree.o: rbtree.c rbtree.h
 	$(CC) $(CFLAGS) -c $<
 
 rbtree_test.o: rbtree_test.c rbtree.c rbtree.h test.h

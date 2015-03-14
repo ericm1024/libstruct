@@ -48,6 +48,8 @@
 #ifndef STRUCT_FLIST_H
 #define STRUCT_FLIST_H 1
 
+#include <stddef.h>
+
 struct flist {
 	struct flist *next;
 };
