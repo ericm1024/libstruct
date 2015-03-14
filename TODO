@@ -4,8 +4,13 @@ tests:
 	testee.
 
 bugs:
-	hash table implementation does not shrink when it can.
-	linked list is failing a test.
+	- hash table implementation does not shrink when it can
+	- linked list is failing a test
+
+issues:
+	- posix memalign exists on OSX but it does not define the macros
+	  that glibc does to denote that it exists, so the compile-time
+	  test for it in htable.c fails even though it shouldn't.
 
 in progress:
 	btree
@@ -16,6 +21,8 @@ future structures:
 	string
 	heap
 	counting filter
+	trie (strings)
+	radix tree (integers)
 
 housekeeping:
 	- clean up make files, put variables in top level make file, use
@@ -25,7 +32,6 @@ housekeeping:
 	- write a shell script to run tests.  
 
 refactoring:
-	- change all integer return types that could be bools to bools.
 	- do a once over of all old code, particularly avl_tree. There
 	  is some messy stuff in there. (also flist and list)
 	- remove typdefs for structs, old style was better (i.e. revert to

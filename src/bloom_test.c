@@ -36,7 +36,7 @@
  *       probability for elements that do not exist in the table.
  */
 
-#define TEST_FILTER_SIZE (1 << 20)
+#define TEST_FILTER_SIZE (1 << 18)
 
 void test_init_destroy()
 {
@@ -45,7 +45,7 @@ void test_init_destroy()
 		    "BLOOM_FITLER macro did not initialize probability.\n");
 	ASSERT_TRUE(b.n == TEST_FILTER_SIZE,
 		    "BLOOM_FITLER macro did not initialize n.\n");
-	ASSERT_TRUE(bloom_init(&b) == 0,
+	ASSERT_TRUE(bloom_init(&b),
 		    "bloom init returned failure return value.\n");
 	ASSERT_TRUE(b.bits,
 		    "bloom init did not allocate bits array.\n");
@@ -66,7 +66,7 @@ void test_insert()
 	}
 	
 	for (size_t i = 0; i < TEST_FILTER_SIZE; i++)
-		ASSERT_TRUE(bloom_query(&b,test_data[i]) == 0,
+		ASSERT_TRUE(bloom_query(&b,test_data[i]),
 			    "query returned false for inserted element.\n");
 	bloom_destroy(&b);
 }
@@ -80,7 +80,7 @@ void test_false_positive()
 
 	size_t false_pos = 0;
 	for (size_t i= 0; i < TEST_FILTER_SIZE; i++)
-		if (bloom_query(&b, pcg64_random()) == 0)
+		if (bloom_query(&b, pcg64_random()))
 			false_pos++;
 	
         double falsep = ((double)false_pos)/((double)TEST_FILTER_SIZE);
@@ -94,7 +94,7 @@ void test_empty_query()
 	BLOOM_FILTER(b, TEST_FILTER_SIZE, BLOOM_P_DEFAULT);
 	bloom_init(&b);
 	for (size_t i = 0; i < TEST_FILTER_SIZE; i++)
-		ASSERT_TRUE(bloom_query(&b, pcg64_random()) == 1,
+		ASSERT_FALSE(bloom_query(&b, pcg64_random()),
 			    "query returned true for empty filter\n");
 	bloom_destroy(&b);
 }
