@@ -32,7 +32,7 @@
 /**** global tesing types, variables, and macros ****/
 
 /* size of test lists */
-#define data_length 102
+#define data_length 1000
 
 struct point_t {
 	int x;
@@ -90,7 +90,7 @@ static void assert_equal(struct point_t *control, struct list_head *hd,
 	
 	/* test for correct data and ordering */
 	struct point_t *l = list_first(hd);
-	ASSERT_TRUE(list_prev(hd, l), "assert_equal: first->prev was not null.\n");
+	ASSERT_TRUE(!list_prev(hd, l), "assert_equal: first->prev was not null.\n");
 
 	struct point_t *prev = NULL;
 	for (size_t i = 0; i < size; i++, l = list_next(hd,l)) {
@@ -101,7 +101,7 @@ static void assert_equal(struct point_t *control, struct list_head *hd,
 	}
 	
 	/* test for null termination */
-	ASSERT_TRUE(!list_next(hd,l), "assert_equal: last->next was not null.\n");
+	ASSERT_TRUE(!l, "assert_equal: last->next was not null.\n");
 }
 
  /**** more generic testing macros ****/
@@ -125,7 +125,7 @@ void test_list_insert_before_many()
 	list_insert_before(&tlist, list_first(&tlist), insertee);
 	for (size_t i = 0; i < data_length - 1; i++) {
 		insertee = copy_point(&control[i]);
-		list_insert_before(&tlist, list_first(&tlist), insertee);
+		list_insert_before(&tlist, list_last(&tlist), insertee);
 	}
 	
 	assert_equal(control, &tlist, data_length,
@@ -153,10 +153,10 @@ void test_list_insert_after_many()
 	INIT_TEST_DATA(control, tlist, data_length);
 
 	struct point_t *insertee = copy_point(&control[0]);
-	list_insert_after(&tlist, tlist.first, insertee);
+	list_insert_after(&tlist, list_first(&tlist), insertee);
 	for (size_t i = 1; i < data_length; i++) {
 		insertee = copy_point(&control[data_length - i]);
-		list_insert_after(&tlist, tlist.first, insertee);
+		list_insert_after(&tlist, list_first(&tlist), insertee);
 	}
 	
 	assert_equal(control, &tlist, data_length,
@@ -300,7 +300,7 @@ void test_list_splice_end()
 		}
 	}
 
-	list_splice(&slice_of_tlist, slice_of_tlist.last, &rest_of_tlist);
+	list_splice(&slice_of_tlist, list_last(&slice_of_tlist), &rest_of_tlist);
 
 	/* sanity check (i.e. does push back work?) */
 	assert_equal(control, &control_tlist, data_length,
@@ -317,7 +317,7 @@ void test_list_splice_end()
 		    "test_list_splice_end: splicee was not invalidated.\n");
 
 	list_for_each(&slice_of_tlist, &free);
-	list_for_each_range(&control_tlist, &free, control_tlist.first, NULL);
+	list_for_each_range(&control_tlist, &free, list_first(&control_tlist), NULL);
 }
 
 void test_list_splice_middle()
@@ -372,7 +372,7 @@ void test_list_splice_middle()
 		    "test_list_splice_midde: splicee was not invalidated.\n");
 
 	list_for_each(&rest_of_tlist, &free);
-	list_for_each_range(&control_tlist, &free, control_tlist.first, NULL);
+	list_for_each_range(&control_tlist, &free, list_first(&control_tlist), NULL);
 }
 
 void test_list_splice_none()
@@ -385,7 +385,7 @@ void test_list_splice_none()
 	}
 
 	LIST_HEAD(empty, struct point_t, l);
-	list_splice(&tlist, tlist.first->next, &empty);
+	list_splice(&tlist, list_next(&tlist, list_first(&tlist)), &empty);
 	assert_equal(control, &tlist, data_length,
 		     "test_list_splice_none: invalid control list.\n");
 
