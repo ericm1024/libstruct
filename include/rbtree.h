@@ -73,7 +73,7 @@ typedef long (*rb_cmp_t)(void *lhs, void *rhs);
 
 typedef struct rb_head {
 	rb_node_t *root;
-	size_t offset;
+	const size_t offset;
 	/* offset of rb_nodes in enclosing structs */
 	rb_cmp_t cmp;
 	size_t nnodes;
@@ -90,8 +90,12 @@ typedef struct rb_head {
  * \param container  (type) Type of the enclosing structure.
  * \param member     (token) name of the rb_node_t member in container.
  */
-#define RB_TREE(name, lt, container, member) \
-	rb_head_t name = {NULL, offsetof(container, member), (rb_cmp_t)lt, 0};
+#define RB_TREE(name, lt, container, member)				\
+	rb_head_t name = {						\
+		.root = NULL,						\
+		.offset = offsetof(container, member),			\
+		.cmp = (rb_cmp_t)lt,					\
+		.nnodes = 0};
 
 /**
  * \brief Insert an element into a tree.

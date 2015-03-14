@@ -58,7 +58,7 @@ struct flist {
 struct flist_head {
 	struct flist *first;
 	unsigned long length;
-	unsigned long offset;
+	const unsigned long offset;
 };
 
 /**

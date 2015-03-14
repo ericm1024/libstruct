@@ -82,7 +82,7 @@ typedef struct avl_head {
 	/* number of nodes in the tree */
 	avl_cmp_t cmp;
 	/* less than comparator */
-	size_t offset;
+	const size_t offset;
 	/* offset of the avl node in the                                                                                   
 	 * enclosing struct */
 } avl_head_t;
@@ -97,8 +97,12 @@ typedef struct avl_head {
  * \param container  (type) Type of the enclosing container.
  * \param member     (token) Name of the avl_node_t member in container.
  */
-#define AVL_TREE(name, lt, container, member)                             \
-	avl_head_t name = {NULL, 0, (avl_cmp_t)(lt), offsetof(container, member)}
+#define AVL_TREE(name, lt, container, member)				\
+	avl_head_t name = {						\
+		.root = NULL,						\
+		.size = 0,						\
+		.cmp = (avl_cmp_t)(lt),					\
+		.offset = offsetof(container, member)};
 
 /**
  * Insert an element into the tree.

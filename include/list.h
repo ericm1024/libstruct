@@ -62,7 +62,7 @@ struct list_head {
 	struct list *first;
 	struct list *last;
 	size_t length;
-	unsigned long offset;
+	const unsigned long offset;
 };
 
 /**

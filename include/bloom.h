@@ -101,7 +101,14 @@ typedef struct bloom {
  * bloom_init.
  */
 #define BLOOM_FILTER(name, n, p)                           \
-	bloom_t name = (bloom_t){NULL, NULL, (n), 0, 0, (p), 0};
+	bloom_t name = {				   \
+		.bits = NULL,				   \
+		.seeds = NULL,				   \
+		.n = (n),				   \
+		.bsize = 0,				   \
+		.nhash = 0,				   \
+		.p = (p),				   \
+		.nbits = 0};
 
 /**
  * \brief Initialize a bloom filter.

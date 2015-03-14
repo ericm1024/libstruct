@@ -37,8 +37,10 @@ typedef struct btree {
  * \brief Declare a btree.
  * \param name  (token) name of the tree to declare
  */
-#define B_TREE(name) \
-        btree_t name = {0, NULL};
+#define B_TREE(name)				\
+        btree_t name = {			\
+		.entries = 0,			\
+		.root = NULL};
 
 /**
  * \fun btree_init

@@ -32,13 +32,8 @@ housekeeping:
 	- write a shell script to run tests.  
 
 refactoring:
-	- fix all compiler warnings
 	- do a once over of all old code, particularly avl_tree. There
 	  is some messy stuff in there. (also flist and list)
 	- remove typdefs for structs, old style was better (i.e. revert to
 	  always using struct foo instead of typedef'ing "struct foo" to
 	  "foo_t" everywhere)
-	- Change all structure initialization macros to set struct members
-	  by name instead of by magic (i.e. {.foo = 1, .bar = 2}; instead of
-	  {1,2};)
-	- make 'offset' fields in all structures const.

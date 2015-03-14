@@ -61,8 +61,15 @@ typedef struct htable {
  *
  * \param name  (token) The name of the hash table to declare.
  */
-#define HASH_TABLE(name) \
-	htable_t name = {0, 0, 0, 0, NULL, NULL, NULL}
+#define HASH_TABLE(name)				\
+	htable_t name = {				\
+		.size = 0,				\
+		.entries = 0,				\
+		.seed1 = 0,				\
+		.seed2 = 0,				\
+		.table1 = NULL,				\
+		.table2 = NULL,				\
+		.stash = NULL}
 
 /**
  * \brief Initialize a hash table of a given size.
