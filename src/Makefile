@@ -5,7 +5,7 @@ RNG = ./pcg-c-master
 CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
 TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test
 #VALGRIND = valgrind --leak-check=full
-VALGRIND = ""
+VALGRIND = ''
 
 vpath %.h $(INCLUDE)
 vpath %.h $(RNG)/include
@@ -23,10 +23,10 @@ test: $(TARGETS)
 	$(VALGRIND)./bloom_test
 	$(VALGRIND)./rbtree_test
 
-flist_test: flist_test.o flist.o
+flist_test: flist_test.o flist.o test.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-list_test: list_test.o list.o
+list_test: list_test.o list.o test.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 avl_test: avl_test.o avl_tree.o test.o
