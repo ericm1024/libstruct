@@ -100,7 +100,7 @@ typedef struct avl_head {
 #define AVL_TREE(name, lt, container, member)				\
 	avl_head_t name = {						\
 		.root = NULL,						\
-		.size = 0,						\
+		.n_nodes = 0,						\
 		.cmp = (avl_cmp_t)(lt),					\
 		.offset = offsetof(container, member)};
 

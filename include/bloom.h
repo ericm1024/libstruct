@@ -100,14 +100,14 @@ typedef struct bloom {
  * \detail This does not initialize the structure. That is done by
  * bloom_init.
  */
-#define BLOOM_FILTER(name, n, p)                           \
+#define BLOOM_FILTER(name, nkeys, prob)			   \
 	bloom_t name = {				   \
 		.bits = NULL,				   \
 		.seeds = NULL,				   \
-		.n = (n),				   \
+		.n = (nkeys),				   \
 		.bsize = 0,				   \
 		.nhash = 0,				   \
-		.p = (p),				   \
+		.p = (prob),				   \
 		.nbits = 0};
 
 /**
