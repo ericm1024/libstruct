@@ -71,6 +71,8 @@ struct chunky_str {
 			.length = 0,		\
 			.offset = 0}}
 
+
+
 /**********************************************************
  *                       cursor ops                       *
  **********************************************************/
@@ -81,6 +83,25 @@ struct chunky_str {
  * \return A cursor referencing the beginning of the list.
  */
 extern cs_cursor_t cs_get_cursor(struct chunky_str *cs);
+
+/**
+ * \brief Clone a cursor.
+ * \param Jango   The template for cloning
+ * \return Boba (an unaltered clone for himself)
+ * \detail This function allocates memory. Both cursors need to be
+ * freed with calls to cs_cursor_destroy.
+ */
+extern cs_cursor_t cs_clone_cursor(cs_cursor_t jango);
+
+/**
+ * \brief Determine if two cursors refer to exactly the same location
+ * in the same string.
+ * \param lhs   The first cursor
+ * \param rhs   The second cursor
+ * \return true if the cursors are both valid and refer to the same
+ * location.
+ */
+extern bool cs_cursor_equal(cs_cursor_t lhs, cs_cursor_t rhs);
 
 /**
  * \brief Move a cursor to the beginning of its string.
@@ -97,6 +118,22 @@ extern bool cs_cursor_begin(cs_cursor_t cursor);
  * is not empty)
  */
 extern bool cs_cursor_end(cs_cursor_t cursor, int *status);
+
+/**
+ * \brief Determine if a cursor refers to the very beginning of its string.
+ * \param cursor  The cursor
+ * \return true if the cursor is valid and refers to the very beginning of
+ * its string, false otherwise.
+ */
+extern bool cs_cursor_is_start(cs_cursor_t cursor);
+
+/**
+ * \brief Determine if a cursor refers to the very end of its string.
+ * \param cursor  The cursor
+ * \return true if the cursor is valid and refers to the ver end of its string,
+ * false otherwise.
+ */
+extern bool cs_cursor_is_end(cs_cursor_t cursor);
 
 /**
  * \brief Destroy (deallocate) a cursor. The cursor is (hopefully obviously)
@@ -167,22 +204,73 @@ extern void cs_insert_clobber(cs_cursor_t cursor, char c);
 extern bool cs_erase(cs_cursor_t cursor, char *c);
 
 /**
- * \brief 
- *
- *
+ * \brief Determine if a cursor is valid.
+ * \param cursor   The cursor
+ * \return true if the cursor is valid, false if not. A cursor is invalidated
+ * any time cs_insert_before, cs_insert_after, or cs_erase is called on another
+ * cursor to the same string.
  */
-extern bool cursor_is_valid(cs_cursor_t cursor);
+extern bool cs_cursor_is_valid(cs_cursor_t cursor);
 
-/* destroy */
+/**
+ * \brief Invalidate a cursor. This is a quick way to mark a cursor as unused
+ * without actually freeing it.
+ * \param cursor   The cursor to invalidate.
+ * \detail There is no going back on this function call. Once a cursor is
+ * invalidated it is no longer usable in any way.
+ */
+extern void cs_invalidate_cursor(cs_cursor_t cursor);
+
+
+
+/**********************************************************
+ *                    chunky string ops                   *
+ **********************************************************/
+
+/**
+ * \brief Garbage collect cursors, i.e. free all invalid cursors.
+ * \param cs   The chunky string to garbage collect from.
+ */
+extern void cs_do_cursor_gc(struct chunky_str *cs);
+
+/**
+ * \brief Destroy a chunky string and free all memory associated with it
+ * (this includes the string itself, as well as any and all outstanding cursors
+ * to the string.
+ * \param cs   The string to destroy.
+ */
 extern void cs_destroy(struct chunky_str *cs);
 
-/* clone */
+/**
+ * \brief Create a copy of a string (does not copy cursors).
+ * \param cs   The string to copy.
+ * \return A deep copy of @cs.
+ * \detail Memory is allocated, so the new string will need to be freed
+ * with a call to cs_destroy.
+ */
 extern struct chunky_str *cs_clone(struct chunky_str *cs);
 
-/* to c string */
-extern char *cs_to_cstring(struct chunky_str *cs);
+/**
+ * \brief Create a c string representation of @cs.
+ * \param cs       The struct chunky_str to turn into a c string.
+ * \param length   Pointer to long where the length of the string is written
+ * to.
+ * \return Pointer to a heap allocated string. Must be freed by the caller.
+ * \detail **NOTE** Because of how c strings are expected to behave, this
+ * function will only copy the elements in @cs up to the first null byte.
+ * If you want to create a c string from a chunky string with multiple null
+ * bytes in it, be my guest, but I refuse to enable such shenanigans.
+ */
+extern char *cs_to_cstring(struct chunky_str *cs, unsigned long *length);
 
-/* print */
+/**
+ * \brief Write the contents of a string to a buffer.
+ * \param cs    The chunky string to write out.
+ * \param buf   The buffer to write to.
+ * \param size  The size of buf in bytes.
+ * \detail This function will copy all characters in @cs, not just up to the
+ * first null byte.
+ */
 extern unsigned long cs_print(struct chunky_str *cs, char *buf,
 			      unsigned long size);
 
