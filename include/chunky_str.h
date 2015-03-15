@@ -1,0 +1,189 @@
+/* Copyright 2014 Eric Mueller
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * \file chunky_str.h
+ *
+ * \author Eric Mueller
+ *
+ * \note I must credit to the Harvey Mudd College Computer Science Department
+ * as they came up with this data structure and its lovely name (though they
+ * do it in C++).
+ *
+ * \brief Header file for a string implementation.
+ *
+ * \detail A versitile string implementation designed to handle fast insetion,
+ * deletion, and traversal with minimal space usage. The string can store any
+ * byte, including multiple null bytes.
+ *
+ * Access to the string is performed via the opaque cs_cursor_t type opject.
+ * any number of cursors can exists concurrently, but once one cursor writes,
+ * all others are invalidated.
+ *
+ * TODO WRITE MORE
+ */
+
+#ifndef STRUCT_CHUNKY_STRING_H
+#define STRUCT_CHUNKY_STRING_H 1
+
+#include "list.h"
+#include <stddef.h>
+
+/*! opaque iterator */
+typedef struct cs_cursor* cs_cursor_t;
+
+/*! chunky_str */
+struct chunky_str {
+	/*! doubly linked list containing chunks */
+	struct list_head str;
+	/*! number of characters in the string */
+	unsigned long nchars;
+	/*! list of outstanding cursors */
+	struct list_head cursors;
+};
+
+/**
+ * \brief Declare a chunky string.
+ * \param name   (token) name of the string to declare.
+ */
+#define CHUNKY_STR(name)			\
+	struct chunky_str name = {		\
+		.list_head = {			\
+			.first = NULL,		\
+			.last = NULL,		\
+			.length = 0,		\
+			.offset = 0},		\
+		.nchars = 0,			\
+		.list_head = {			\
+			.first = NULL,		\
+			.last = NULL,		\
+			.length = 0,		\
+			.offset = 0}}
+
+/**********************************************************
+ *                       cursor ops                       *
+ **********************************************************/
+
+/**
+ * \brief Allocate and return a cursor to the beginning of the string.
+ * \param cs  The chunky_str to get a cursor to.
+ * \return A cursor referencing the beginning of the list.
+ */
+extern cs_cursor_t cs_get_cursor(struct chunky_str *cs);
+
+/**
+ * \brief Move a cursor to the beginning of its string.
+ * \param cursor   The cursor to move.
+ * \return true if the cursor refers to a valid character (i.e. if the string
+ * is not empty)
+ */
+extern bool cs_cursor_begin(cs_cursor_t cursor);
+
+/**
+ * \brief Move a cursor to the end of its string.
+ * \param cursor   The cursor to move.
+ * \return true if the cursor refers to a valid character (i.e. if the string
+ * is not empty)
+ */
+extern bool cs_cursor_end(cs_cursor_t cursor, int *status);
+
+/**
+ * \brief Destroy (deallocate) a cursor. The cursor is (hopefully obviously)
+ * no longer valid after this operation, i.e. if you try to use it, you'll
+ * probably get segfaults.
+ * \param cursor   The cursor to destroy.
+ */
+extern void cs_destroy_cursor(cs_cursor_t cursor);
+
+/**
+ * \brief Move a cursor to the next character in the string.
+ * \param cursor   The cursor to move.
+ * \return The next character.
+ */
+extern char cs_cursor_next(cs_cursor_t cursor);
+
+/**
+ * \brief Move a cursor to the previous character in the string.
+ * \param cursor   The cursor to move.
+ * \return The previous character.
+ */
+extern char cs_cursor_prev(cs_cursor_t cursor);
+
+/**
+ * \brief Get the character at the cursor's current location.
+ * \param cursor   The cursor.
+ * \return The character at the cursor's current location.
+ */
+extern char cs_cursor_get(cs_cursor_t cursor);
+
+/**
+ * \brief Insert a character before a cursor.
+ * \param cursor   The cursor
+ * \param c        The character to insert
+ * \return true if the character was inserted, false if it could not be
+ * inserted (for example, if memory needed to be allocated and the
+ * allocation failed, or if the cursor was invalid)
+ * \note This will invalidate all other cursors.
+ */
+extern bool cs_insert_before(cs_cursor_t cursor, char c);
+
+/**
+ * \brief Insert a character after a cursor.
+ * \param cursor   The cursor
+ * \param c        The charater to insert
+ * \return true if the character was inserted, false if it could not be
+ * inserted (for example, if memory needed to be allocated and the
+ * allocation failed, or if the cursor was invalid)
+ * \note This will invalidate all other cursors.
+ */
+extern bool cs_insert_after(cs_cursor_t cursor, char c);
+
+/**
+ * \brief Clobber the character at the current cursor with a new one.
+ * \param cursor  The cursor
+ * \param c       The new character.
+ * \note this function has no return value like insert_after and insert_before
+ * because it can not fail.
+ */
+extern void cs_insert_clobber(cs_cursor_t cursor, char c);
+
+/**
+ * \brief Erase the charater at the cursor's location.
+ * \param cursor   The cursor.
+ * \param c        Somewhere to put the character that was removed. NULL is ok.
+ * \return True if the erase was valid, false otherwise.
+ */
+extern bool cs_erase(cs_cursor_t cursor, char *c);
+
+/**
+ * \brief 
+ *
+ *
+ */
+extern bool cursor_is_valid(cs_cursor_t cursor);
+
+/* destroy */
+extern void cs_destroy(struct chunky_str *cs);
+
+/* clone */
+extern struct chunky_str *cs_clone(struct chunky_str *cs);
+
+/* to c string */
+extern char *cs_to_cstring(struct chunky_str *cs);
+
+/* print */
+extern unsigned long cs_print(struct chunky_str *cs, char *buf,
+			      unsigned long size);
+
+#endif /* STRUCT_CHUNKY_STRING_H */
