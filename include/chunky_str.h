@@ -39,6 +39,7 @@
 
 #include "list.h"
 #include <stddef.h>
+#include <stdbool.h>
 
 /*! opaque iterator */
 typedef struct cs_cursor* cs_cursor_t;
@@ -59,7 +60,7 @@ struct chunky_str {
  */
 #define CHUNKY_STR(name)			\
 	struct chunky_str name = {		\
-		.list_head = {			\
+		.str = {			\
 			.first = NULL,		\
 			.last = NULL,		\
 			.length = 0,		\
@@ -80,7 +81,8 @@ struct chunky_str {
 /**
  * \brief Allocate and return a cursor to the beginning of the string.
  * \param cs  The chunky_str to get a cursor to.
- * \return A cursor referencing the beginning of the list.
+ * \return A cursor referencing the beginning of the list. NULL if allocation
+ * failed.
  */
 extern cs_cursor_t cs_get_cursor(struct chunky_str *cs);
 
