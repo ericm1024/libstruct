@@ -88,3 +88,6 @@ rbtree.o: rbtree.c rbtree.h
 
 rbtree_test.o: rbtree_test.c rbtree.c rbtree.h test.h
 	$(CC) $(CFLAGS) -c $<
+
+chunky_str.o: chunky_str.c chunky_str.h
+	$(CC) $(CFLAGS) -c $<

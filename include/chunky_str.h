@@ -122,20 +122,11 @@ extern bool cs_cursor_begin(cs_cursor_t cursor);
 extern bool cs_cursor_end(cs_cursor_t cursor, int *status);
 
 /**
- * \brief Determine if a cursor refers to the very beginning of its string.
+ * \brief Determine if a cursor is within the range of the string.
  * \param cursor  The cursor
- * \return true if the cursor is valid and refers to the very beginning of
- * its string, false otherwise.
+ * \return true if the cursor is valid and refers to a character within the string
  */
-extern bool cs_cursor_is_start(cs_cursor_t cursor);
-
-/**
- * \brief Determine if a cursor refers to the very end of its string.
- * \param cursor  The cursor
- * \return true if the cursor is valid and refers to the ver end of its string,
- * false otherwise.
- */
-extern bool cs_cursor_is_end(cs_cursor_t cursor);
+extern bool cs_cursor_in_range(cs_cursor_t cursor);
 
 /**
  * \brief Destroy (deallocate) a cursor. The cursor is (hopefully obviously)
@@ -143,26 +134,29 @@ extern bool cs_cursor_is_end(cs_cursor_t cursor);
  * probably get segfaults.
  * \param cursor   The cursor to destroy.
  */
-extern void cs_destroy_cursor(cs_cursor_t cursor);
+extern void cs_cursor_destroy(cs_cursor_t cursor);
 
 /**
  * \brief Move a cursor to the next character in the string.
  * \param cursor   The cursor to move.
  * \return The next character.
+ * \detail Calling this on an invalid cursor will produce undefined behavior.
  */
-extern char cs_cursor_next(cs_cursor_t cursor);
+extern char cs_cursor_next(cs_cursor_t cursor, int *status);
 
 /**
  * \brief Move a cursor to the previous character in the string.
  * \param cursor   The cursor to move.
  * \return The previous character.
+ * \detail Calling this on an invalid cursor will produce undefined behavior.
  */
-extern char cs_cursor_prev(cs_cursor_t cursor);
+extern char cs_cursor_prev(cs_cursor_t cursor, int *status);
 
 /**
  * \brief Get the character at the cursor's current location.
  * \param cursor   The cursor.
  * \return The character at the cursor's current location.
+ * \detail Calling this on an invalid cursor will produce undefined behavior.
  */
 extern char cs_cursor_get(cs_cursor_t cursor);
 
@@ -192,10 +186,11 @@ extern bool cs_insert_after(cs_cursor_t cursor, char c);
  * \brief Clobber the character at the current cursor with a new one.
  * \param cursor  The cursor
  * \param c       The new character.
- * \note this function has no return value like insert_after and insert_before
- * because it can not fail.
+ * \return true if the insertion was sucessful, false otherwise. Since this
+ * function will not allocate memory, the only way for it to fail is if
+ * the cursor is not valid.
  */
-extern void cs_insert_clobber(cs_cursor_t cursor, char c);
+extern bool cs_insert_clobber(cs_cursor_t cursor, char c);
 
 /**
  * \brief Erase the charater at the cursor's location.
