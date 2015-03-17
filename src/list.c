@@ -179,27 +179,6 @@ void list_splice(struct list_head *hd, void *after,
 	splicee->length = 0;
 }
 
-void list_for_each(struct list_head *hd, void (*f)(void *data))
-{
-	for (struct list *i = hd->first; i; ) {
-		struct list *next = i->next;
-		f(node_to_data(hd, i));
-		i = next;
-	}	
-}
-
-void list_for_each_range(struct list_head *hd, void (*f)(void *data),
-			 void *first, void *last )
-{
-	struct list *l_first = data_to_node(hd, first);
-	struct list *l_last = data_to_node(hd, last);
-	for (struct list *i = l_first; i && i != l_last; ) {
-		struct list *next = i->next;
-		f(node_to_data(hd, i));
-		i = next;
-	}
-}
-
 void list_reverse(struct list_head *hd)
 {
 	assert(hd);
