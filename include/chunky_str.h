@@ -41,36 +41,40 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+/*
+ * TODO: make this a truly opaque type,
+ * i.e. typedef struct {struct cs_cursor*} cs_cursor_t;
+ */
+
 /*! opaque iterator */
 typedef struct cs_cursor* cs_cursor_t;
 
-/*! chunky_str */
+/*! chunky string structure */
 struct chunky_str {
-	/*! doubly linked list containing chunks */
+	/*! doubly linked list of chunks */
 	struct list_head str;
 	/*! number of characters in the string */
 	unsigned long nchars;
-	/*! list of outstanding cursors */
-	struct list_head cursors;
 };
 
+
 /**
- * \brief Declare a chunky string.
- * \param name   (token) name of the string to declare.
- */
-#define CHUNKY_STR(name)			\
-	struct chunky_str name = {		\
-		.str = {			\
+ * \brief Definition of a default chunky string.
+ */ 
+#define CHUNKY_STRING				\
+        	{.str = {	   		\
 			.first = NULL,		\
 			.last = NULL,		\
 			.length = 0,		\
 			.offset = 0},		\
-		.nchars = 0,			\
-		.list_head = {			\
-			.first = NULL,		\
-			.last = NULL,		\
-			.length = 0,		\
-			.offset = 0}}
+		.nchars = 0}
+
+/**
+ * \brief Declare and define a chunky string.
+ * \param name   (token) name of the string to declare.
+ */
+#define CHUNKY_STR(name)			\
+	struct chunky_str name = CHUNKY_STRING
 
 
 
@@ -140,45 +144,43 @@ extern void cs_cursor_destroy(cs_cursor_t cursor);
  * \brief Move a cursor to the next character in the string.
  * \param cursor   The cursor to move.
  * \return The next character.
- * \detail Calling this on an invalid cursor will produce undefined behavior.
  */
-extern char cs_cursor_next(cs_cursor_t cursor, int *status);
+extern char cs_cursor_next(cs_cursor_t cursor);
 
 /**
  * \brief Move a cursor to the previous character in the string.
  * \param cursor   The cursor to move.
  * \return The previous character.
- * \detail Calling this on an invalid cursor will produce undefined behavior.
  */
-extern char cs_cursor_prev(cs_cursor_t cursor, int *status);
+extern char cs_cursor_prev(cs_cursor_t cursor);
 
 /**
  * \brief Get the character at the cursor's current location.
  * \param cursor   The cursor.
  * \return The character at the cursor's current location.
- * \detail Calling this on an invalid cursor will produce undefined behavior.
  */
-extern char cs_cursor_get(cs_cursor_t cursor);
+extern char cs_cursor_getchar(cs_cursor_t cursor);
 
 /**
  * \brief Insert a character before a cursor.
- * \param cursor   The cursor
+ * \param cursor   The cursor. This points to the newly inserted character
+ *                 after this function is called.
  * \param c        The character to insert
  * \return true if the character was inserted, false if it could not be
  * inserted (for example, if memory needed to be allocated and the
  * allocation failed, or if the cursor was invalid)
- * \note This will invalidate all other cursors.
+ * \note This operation renders all other cursors invalid.
  */
 extern bool cs_insert_before(cs_cursor_t cursor, char c);
 
 /**
  * \brief Insert a character after a cursor.
- * \param cursor   The cursor
+ * \param cursor   The cursor. This points to the newly inserted character after
+ *                 this function is called.
  * \param c        The charater to insert
  * \return true if the character was inserted, false if it could not be
- * inserted (for example, if memory needed to be allocated and the
- * allocation failed, or if the cursor was invalid)
- * \note This will invalidate all other cursors.
+ * inserted (i.e. allocating a new chunk failed)
+ * \note This operation renders all other cursors invalid.
  */
 extern bool cs_insert_after(cs_cursor_t cursor, char c);
 
@@ -186,49 +188,32 @@ extern bool cs_insert_after(cs_cursor_t cursor, char c);
  * \brief Clobber the character at the current cursor with a new one.
  * \param cursor  The cursor
  * \param c       The new character.
- * \return true if the insertion was sucessful, false otherwise. Since this
- * function will not allocate memory, the only way for it to fail is if
- * the cursor is not valid.
+ * \return true
  */
 extern bool cs_insert_clobber(cs_cursor_t cursor, char c);
 
 /**
  * \brief Erase the charater at the cursor's location.
  * \param cursor   The cursor.
- * \param c        Somewhere to put the character that was removed. NULL is ok.
- * \return True if the erase was valid, false otherwise.
+ * \return True if the erase was valid, false otherwise (i.e. the string was
+ * empty).
  */
-extern bool cs_erase(cs_cursor_t cursor, char *c);
+extern bool cs_cursor_erase(cs_cursor_t cursor);
 
 /**
- * \brief Determine if a cursor is valid.
- * \param cursor   The cursor
- * \return true if the cursor is valid, false if not. A cursor is invalidated
- * any time cs_insert_before, cs_insert_after, or cs_erase is called on another
- * cursor to the same string.
+ * \brief Erase the charater at the cursor's location and return it.
+ * \param cursor   The cursor.
+ * \param c        Somewhere to put the character that was removed.
+ * \return True if the erase was valid, false otherwise (i.e. the string was
+ * empty).
  */
-extern bool cs_cursor_is_valid(cs_cursor_t cursor);
-
-/**
- * \brief Invalidate a cursor. This is a quick way to mark a cursor as unused
- * without actually freeing it.
- * \param cursor   The cursor to invalidate.
- * \detail There is no going back on this function call. Once a cursor is
- * invalidated it is no longer usable in any way.
- */
-extern void cs_invalidate_cursor(cs_cursor_t cursor);
+extern bool cs_cursor_erase_get(cs_cursor_t cursor, char *c);
 
 
 
 /**********************************************************
  *                    chunky string ops                   *
  **********************************************************/
-
-/**
- * \brief Garbage collect cursors, i.e. free all invalid cursors.
- * \param cs   The chunky string to garbage collect from.
- */
-extern void cs_do_cursor_gc(struct chunky_str *cs);
 
 /**
  * \brief Destroy a chunky string and free all memory associated with it
@@ -240,12 +225,13 @@ extern void cs_destroy(struct chunky_str *cs);
 
 /**
  * \brief Create a copy of a string (does not copy cursors).
- * \param cs   The string to copy.
+ * \param cs     The string to copy.
+ * \param clone  Where to put the new string.
  * \return A deep copy of @cs.
  * \detail Memory is allocated, so the new string will need to be freed
  * with a call to cs_destroy.
  */
-extern struct chunky_str *cs_clone(struct chunky_str *cs);
+extern bool cs_clone(struct chunky_str *cs, struct chunky_str *clone);
 
 /**
  * \brief Create a c string representation of @cs.
@@ -265,10 +251,23 @@ extern char *cs_to_cstring(struct chunky_str *cs, unsigned long *length);
  * \param cs    The chunky string to write out.
  * \param buf   The buffer to write to.
  * \param size  The size of buf in bytes.
+ * \return The number of bytes written to buf.
  * \detail This function will copy all characters in @cs, not just up to the
  * first null byte.
  */
-extern unsigned long cs_print(struct chunky_str *cs, char *buf,
+extern unsigned long cs_write(struct chunky_str *cs, char *buf,
 			      unsigned long size);
+
+/**
+ * \brief Iterate over every character in a chunky string.
+ * \param char_name   The name of the iterating char variable to declare.
+ * \param cursor      A cursor to iterate with.
+ */ 
+#define cs_for_each(char_name, cursor)					\
+	for (char char_name, cs_cursor_begin(cursor),			\
+		     char_name = cs_cursor_getchar(cursor);		\
+	     cs_cursor_in_range(cursor);				\
+	     char_name = cs_cursor_next(cursor))			\
+	     
 
 #endif /* STRUCT_CHUNKY_STRING_H */
