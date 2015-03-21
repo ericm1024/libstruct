@@ -3,7 +3,8 @@ OPTFLAGS = -O0
 INCLUDE = ../include
 RNG = ./pcg-c-master
 CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
-TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test
+TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test \
+	chunky_str_test
 #VALGRIND = valgrind --leak-check=full
 VALGRIND = ''
 
@@ -39,6 +40,9 @@ bloom_test: bloom_test.o bloom.o test.o fasthash.o
 	$(CC) $(CFLAGS) -lm -o $@ $^ $(RNG)/src/libpcg_random.a
 
 rbtree_test: rbtree_test.o rbtree.o test.o
+	$(CC) $(CFLAGS) -lm -o $@ $^
+
+chunky_str_test: chunky_str_test.o list.o chunky_str.o test.o
 	$(CC) $(CFLAGS) -lm -o $@ $^
 
 flist_test.o: flist_test.c flist.h
@@ -89,5 +93,8 @@ rbtree.o: rbtree.c rbtree.h
 rbtree_test.o: rbtree_test.c rbtree.c rbtree.h test.h
 	$(CC) $(CFLAGS) -c $<
 
-chunky_str.o: chunky_str.c chunky_str.h
+chunky_str.o: chunky_str.c chunky_str.h list.h
+	$(CC) $(CFLAGS) -c $<
+
+chunky_str_test.o: chunky_str_test.c chunky_str.h
 	$(CC) $(CFLAGS) -c $<
