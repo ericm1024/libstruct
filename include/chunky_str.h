@@ -61,20 +61,20 @@ struct chunky_str {
 /**
  * \brief Definition of a default chunky string.
  */ 
-#define CHUNKY_STRING				\
-        	{.str = {	   		\
-			.first = NULL,		\
-			.last = NULL,		\
-			.length = 0,		\
-			.offset = 0},		\
-		.nchars = 0}
+#define CHUNKY_STRING_DEFAULT				\
+	(struct chunky_str){.str = {			\
+			        .first = NULL,		\
+				.last = NULL,		\
+				.length = 0,		\
+				.offset = 0},		\
+			.nchars = 0}
 
 /**
  * \brief Declare and define a chunky string.
  * \param name   (token) name of the string to declare.
  */
-#define CHUNKY_STR(name)			\
-	struct chunky_str name = CHUNKY_STRING
+#define CHUNKY_STRING(name)			\
+	struct chunky_str name = CHUNKY_STRING_DEFAULT
 
 
 
@@ -88,7 +88,15 @@ struct chunky_str {
  * \return A cursor referencing the beginning of the list. NULL if allocation
  * failed.
  */
-extern cs_cursor_t cs_get_cursor(struct chunky_str *cs);
+extern cs_cursor_t cs_cursor_get(struct chunky_str *cs);
+
+/**
+ * \brief Destroy (deallocate) a cursor. The cursor is (hopefully obviously)
+ * no longer valid after this operation, i.e. if you try to use it, you'll
+ * probably get segfaults.
+ * \param cursor   The cursor to destroy.
+ */
+extern void cs_cursor_destroy(cs_cursor_t cursor);
 
 /**
  * \brief Clone a cursor.
@@ -97,7 +105,7 @@ extern cs_cursor_t cs_get_cursor(struct chunky_str *cs);
  * \detail This function allocates memory. Both cursors need to be
  * freed with calls to cs_cursor_destroy.
  */
-extern cs_cursor_t cs_clone_cursor(cs_cursor_t jango);
+extern cs_cursor_t cs_cursor_clone(cs_cursor_t jango);
 
 /**
  * \brief Determine if two cursors refer to exactly the same location
@@ -123,7 +131,7 @@ extern bool cs_cursor_begin(cs_cursor_t cursor);
  * \return true if the cursor refers to a valid character (i.e. if the string
  * is not empty)
  */
-extern bool cs_cursor_end(cs_cursor_t cursor, int *status);
+extern bool cs_cursor_end(cs_cursor_t cursor);
 
 /**
  * \brief Determine if a cursor is within the range of the string.
@@ -131,14 +139,6 @@ extern bool cs_cursor_end(cs_cursor_t cursor, int *status);
  * \return true if the cursor is valid and refers to a character within the string
  */
 extern bool cs_cursor_in_range(cs_cursor_t cursor);
-
-/**
- * \brief Destroy (deallocate) a cursor. The cursor is (hopefully obviously)
- * no longer valid after this operation, i.e. if you try to use it, you'll
- * probably get segfaults.
- * \param cursor   The cursor to destroy.
- */
-extern void cs_cursor_destroy(cs_cursor_t cursor);
 
 /**
  * \brief Move a cursor to the next character in the string.
@@ -163,26 +163,16 @@ extern char cs_cursor_getchar(cs_cursor_t cursor);
 
 /**
  * \brief Insert a character before a cursor.
- * \param cursor   The cursor. This points to the newly inserted character
- *                 after this function is called.
+ * \param cursor   The cursor. Points to the same character after this
+ *                 function is called, unless the string was empty, in which
+ *                 it points to the only character in the string.
  * \param c        The character to insert
  * \return true if the character was inserted, false if it could not be
  * inserted (for example, if memory needed to be allocated and the
  * allocation failed, or if the cursor was invalid)
  * \note This operation renders all other cursors invalid.
  */
-extern bool cs_insert_before(cs_cursor_t cursor, char c);
-
-/**
- * \brief Insert a character after a cursor.
- * \param cursor   The cursor. This points to the newly inserted character after
- *                 this function is called.
- * \param c        The charater to insert
- * \return true if the character was inserted, false if it could not be
- * inserted (i.e. allocating a new chunk failed)
- * \note This operation renders all other cursors invalid.
- */
-extern bool cs_insert_after(cs_cursor_t cursor, char c);
+extern bool cs_insert(cs_cursor_t cursor, char c);
 
 /**
  * \brief Clobber the character at the current cursor with a new one.
@@ -194,7 +184,10 @@ extern bool cs_insert_clobber(cs_cursor_t cursor, char c);
 
 /**
  * \brief Erase the charater at the cursor's location.
- * \param cursor   The cursor.
+ * \param cursor   The cursor. Gets moved to the character before the erased
+ *                 character unless the erased character was the first
+ *                 character in the string, in which case it stays at the
+ *                 beginning of the string.
  * \return True if the erase was valid, false otherwise (i.e. the string was
  * empty).
  */
@@ -214,6 +207,22 @@ extern bool cs_cursor_erase_get(cs_cursor_t cursor, char *c);
 /**********************************************************
  *                    chunky string ops                   *
  **********************************************************/
+
+/**
+ * \brief Append a character to a string.
+ * \param cs  The chunky string to append to.
+ * \param c   The character to append.
+ * \return true if the operation suceeded, false if memory allocation failed.
+ */
+extern bool cs_push_back(struct chunky_str *cs, char c);
+
+/**
+ * \brief Prepend a character to a string.
+ * \param cs  The chunky string to prepend to.
+ * \param c   The character to prepend.
+ * \return true if the operation suceeded, false if memory allocation failed.
+ */
+extern bool cs_push_front(struct chunky_str *cs, char c);
 
 /**
  * \brief Destroy a chunky string and free all memory associated with it
@@ -262,12 +271,12 @@ extern unsigned long cs_write(struct chunky_str *cs, char *buf,
  * \brief Iterate over every character in a chunky string.
  * \param char_name   The name of the iterating char variable to declare.
  * \param cursor      A cursor to iterate with.
+ * \detail Within the loop one should only access the cursor with the
+ * cs_cursor_getchar function.
  */ 
-#define cs_for_each(char_name, cursor)					\
-	for (char char_name, cs_cursor_begin(cursor),			\
-		     char_name = cs_cursor_getchar(cursor);		\
+#define cs_for_each(cursor)						\
+	for (cs_cursor_begin(cursor);					\
 	     cs_cursor_in_range(cursor);				\
-	     char_name = cs_cursor_next(cursor))			\
-	     
+	     cs_cursor_next(cursor))
 
 #endif /* STRUCT_CHUNKY_STRING_H */
