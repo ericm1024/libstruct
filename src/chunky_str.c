@@ -77,11 +77,6 @@ static inline bool string_is_empty(struct chunky_str *cs)
 	return cs->nchars == 0;
 }
 
-static inline bool valid_cursor(struct cs_cursor *cursor)
-{
-	return cursor->chunk;
-}
-
 static inline bool chunk_is_full(struct cs_chunk *chunk)
 {
 	return chunk->end == NCHARS;
@@ -113,7 +108,6 @@ static inline bool split_chunk(struct chunky_str *cs, struct cs_chunk *chunk)
 
 static bool split_chunk_cursor(struct cs_cursor *cursor)
 {
-
 	if (!split_chunk(cursor->owner, cursor->chunk))
 		return false;
 
@@ -227,18 +221,16 @@ bool cs_cursor_equal(cs_cursor_t lhs, cs_cursor_t rhs)
 		&& lhs->index == rhs->index;
 }
 
-bool cs_cursor_begin(cs_cursor_t cursor)
+void cs_cursor_begin(cs_cursor_t cursor)
 {
 	cursor->chunk = list_first(&cursor->owner->str);
 	cursor->index = 0;
-	return valid_cursor(cursor);
 }
 
-bool cs_cursor_end(cs_cursor_t cursor)
+void cs_cursor_end(cs_cursor_t cursor)
 {
-	cursor->chunk = list_last(&cursor->owner->str);
-	cursor->index = cursor->chunk ? cursor->chunk->end - 1 : 0;
-	return valid_cursor(cursor);
+	cursor->chunk = NULL;
+	cursor->index = 0;
 }
 
 bool cs_cursor_in_range(cs_cursor_t cursor)
@@ -264,6 +256,8 @@ char cs_cursor_next(cs_cursor_t cursor)
 char cs_cursor_prev(cs_cursor_t cursor)
 {
 	cursor->index--;
+	if (!cursor->chunk)
+		cs_cursor_end(cursor);
 	if (cursor->index >= cursor->chunk->end) {
 		cursor->chunk = list_prev(&cursor->owner->str, cursor->chunk);
 		if (cursor->chunk)
@@ -277,12 +271,15 @@ char cs_cursor_getchar(cs_cursor_t cursor)
 	return CURSOR_DEREF(cursor);
 }
 
-bool cs_insert(cs_cursor_t cursor, char c)
+bool cs_cursor_insert(cs_cursor_t cursor, char c)
 {
+	bool ret;
 	/* end cursor. also accounts for empty string */
-	if (!cursor->chunk)
-		return cs_push_back(cursor->owner, c);
-	else if (chunk_is_full(cursor->chunk) && !split_chunk_cursor(cursor))
+	if (!cursor->chunk) {
+		ret = cs_push_back(cursor->owner, c);
+		cs_cursor_end(cursor);
+		return ret;
+	} else if (chunk_is_full(cursor->chunk) && !split_chunk_cursor(cursor))
 		return false;
 	
 	shift_chars(cursor->chunk, cursor->index, SHIFT_FORWARD);
@@ -291,7 +288,7 @@ bool cs_insert(cs_cursor_t cursor, char c)
 	return true;
 }
 
-bool cs_insert_clobber(cs_cursor_t cursor, char c)
+bool cs_cursor_insert_clobber(cs_cursor_t cursor, char c)
 {
 	CURSOR_DEREF(cursor) = c;
 	return true;

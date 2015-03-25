@@ -120,18 +120,14 @@ extern bool cs_cursor_equal(cs_cursor_t lhs, cs_cursor_t rhs);
 /**
  * \brief Move a cursor to the beginning of its string.
  * \param cursor   The cursor to move.
- * \return true if the cursor refers to a valid character (i.e. if the string
- * is not empty)
  */
-extern bool cs_cursor_begin(cs_cursor_t cursor);
+extern void cs_cursor_begin(cs_cursor_t cursor);
 
 /**
- * \brief Move a cursor to the end of its string.
+ * \brief Get a cursor to one-past the end of the string.
  * \param cursor   The cursor to move.
- * \return true if the cursor refers to a valid character (i.e. if the string
- * is not empty)
  */
-extern bool cs_cursor_end(cs_cursor_t cursor);
+extern void cs_cursor_end(cs_cursor_t cursor);
 
 /**
  * \brief Determine if a cursor is within the range of the string.
@@ -172,7 +168,7 @@ extern char cs_cursor_getchar(cs_cursor_t cursor);
  * allocation failed, or if the cursor was invalid)
  * \note This operation renders all other cursors invalid.
  */
-extern bool cs_insert(cs_cursor_t cursor, char c);
+extern bool cs_cursor_insert(cs_cursor_t cursor, char c);
 
 /**
  * \brief Clobber the character at the current cursor with a new one.
@@ -180,7 +176,7 @@ extern bool cs_insert(cs_cursor_t cursor, char c);
  * \param c       The new character.
  * \return true
  */
-extern bool cs_insert_clobber(cs_cursor_t cursor, char c);
+extern bool cs_cursor_insert_clobber(cs_cursor_t cursor, char c);
 
 /**
  * \brief Erase the charater at the cursor's location.

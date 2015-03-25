@@ -119,6 +119,7 @@ void init_cs(struct chunky_str *cs, char *cstr,
 	for (unsigned long i = 0; i < length; i++)
 		ASSERT_TRUE(cs_push_back(cs, cstr[i]), 
 			    "init_cs: cs_push_back failed.\n");
+	ASSERT_TRUE(cs->nchars == length, "init_cs: cs->nchars was wrong.\n");
 }
 
 void walk_cursor(cs_cursor_t cursor, long offset)
@@ -157,6 +158,24 @@ void three_equal_cursors(cs_cursor_t a, cs_cursor_t b, cs_cursor_t c)
 				    "three_equal_cursors: got unequal cursors.\n");
 	}
 }
+
+void cs_equal_control(struct chunky_str *cs, char *control, unsigned long len)
+{
+	cs_cursor_t cursor = cs_cursor_get(cs);
+	unsigned long i;
+	ASSERT_TRUE(cs->nchars == len,
+		    "cs_equal_control: cs->nchars was wrong.\n");
+	
+	for (i = 0;  i < len; i++) {
+		ASSERT_TRUE(cs_cursor_getchar(cursor) == control[i],
+			    "cs_equal_control: got wrong char.\n");
+		cs_cursor_next(cursor);
+	}
+	ASSERT_FALSE(cs_cursor_in_range(cursor),
+		     "cs_equal_control: cursor still in range after traversing "
+		     "entire string.\n");
+}
+
 
 /*
 ======================   BASIC TESTS   ========================
@@ -295,26 +314,30 @@ void test_cursor_begin_end()
 	cs_cursor_end(end);
  	ASSERT_TRUE(cs_cursor_getchar(begin) == control[0],
 		    "begin cursor did not give first char in string.\n");
-	ASSERT_TRUE(cs_cursor_getchar(end) == control[string_size - 1],
-		    "end cursor did not give last char in string.\n");
 
 	/* flip them */
 	cs_cursor_begin(end);
 	cs_cursor_end(begin);
 	ASSERT_TRUE(cs_cursor_getchar(end) == control[0],
 		    "new begin cursor did not give first char in string.\n");
-	ASSERT_TRUE(cs_cursor_getchar(begin) == control[string_size - 1],
-		    "new end cursor did not give last char in string.\n");
+
+
+	printf("got here\n");
 
 	/* shuffle them around a bit, then move them back */
 	walk_cursor_wrap(begin, rand() % string_size);
 	walk_cursor_wrap(end, rand() % string_size);
+
+	printf("got here\n");
+
 	cs_cursor_begin(begin);
 	cs_cursor_end(end);
  	ASSERT_TRUE(cs_cursor_getchar(begin) == control[0],
 		    "begin cursor did not give first char in string.\n");
-	ASSERT_TRUE(cs_cursor_getchar(end) == control[string_size - 1],
-		    "end cursor did not give last char in string.\n");
+
+	cs_cursor_destroy(begin);
+	cs_cursor_destroy(end);
+	free(control);
 }
 
 void test_cursor_next()
@@ -336,6 +359,9 @@ void test_cursor_next()
 			ASSERT_TRUE(c == '\0',
 				    "cursor_next did not give null byte at end.\n");
 	}
+
+	cs_cursor_destroy(cursor);
+	free(control);
 }
 
 void test_cursor_prev()
@@ -348,16 +374,13 @@ void test_cursor_prev()
 	cs_cursor_end(cursor);
 
 	for (long i = string_size - 1; i >= 0; i--) {
+		c = cs_cursor_prev(cursor);
 		ASSERT_TRUE(cs_cursor_getchar(cursor) == control[i],
 			    "cs_cursor_getchar gave invalid character.\n");
-		c = cs_cursor_prev(cursor);
-		if (i > 0)
-			ASSERT_TRUE(c == control[i-1],
-				    "cursor_prev gave invalid character.\n");
-		else
-			ASSERT_TRUE(c == '\0',
-				    "cursor_prev did not give null byte at end.\n");
 	}
+
+	cs_cursor_destroy(cursor);
+	free(control);
 }
 
 void test_cursor_next_prev()
@@ -381,6 +404,9 @@ void test_cursor_next_prev()
 			    "cursor did not match control after walk.\n");		
 		current = next;
 	}
+
+	cs_cursor_destroy(cursor);
+	free(control);
 }
 
 void test_cs_cursor_in_range()
@@ -396,9 +422,8 @@ void test_cs_cursor_in_range()
 		     "prev of begin cursor was not out of range.\n");
 
 	cs_cursor_end(cursor);
-	cs_cursor_next(cursor);
 	ASSERT_FALSE(cs_cursor_in_range(cursor),
-		     "next of end cursor was not out of range.\n");
+		     "end cursor was not out of range.\n");
 
 	cs_cursor_begin(cursor);
 	for (unsigned long i = 0; i < string_size; i++) {
@@ -408,6 +433,8 @@ void test_cs_cursor_in_range()
 	}
 	ASSERT_FALSE(cs_cursor_in_range(cursor),
 		     "cursor was in range after traversing entire string.\n");
+	cs_cursor_destroy(cursor);
+	free(control);
 }
 
 /*
@@ -420,9 +447,66 @@ void test_cs_cursor_in_range()
 ======================   CURSOR ITERATION/DELETION TESTS   ========================
  */
 
-void test_cursor_insert()
+void test_cursor_insert_begin()
 {
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
 	
+	for (long i = string_size - 1; i >=0; i--) {
+		cs_cursor_begin(cursor);
+		cs_cursor_insert(cursor, control[i]);
+	}
+
+	cs_equal_control(&test, control, string_size);
+	cs_cursor_destroy(cursor);
+	free(control);
+}
+
+void test_cursor_insert_end()
+{
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
+
+	for (unsigned long i = 0; i < string_size; i++)
+		cs_cursor_insert(cursor, control[i]);
+
+	cs_equal_control(&test, control, string_size);
+	cs_cursor_destroy(cursor);
+	free(control);
+}
+
+void test_cursor_insert_middle()
+{
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
+	unsigned long begin = 0;
+	unsigned long end = string_size - 1;
+
+	/*
+	 * The idea is to insert characters in a zipper like fashion. First,
+	 * last, second, second to last, etc. Yes, we need both break
+	 * statements. We're inserting two characters on each iteration, so
+	 * if the string has odd length, we'll need to stop in the middle of
+	 * an iteration.
+	 */
+	for (;;) {
+		cs_cursor_insert(cursor, control[begin]);
+		if (begin >= end)
+			break;
+		cs_cursor_insert(cursor, control[end]);
+		cs_cursor_prev(cursor);
+		end--;
+		begin++;
+		if (begin > end)
+			break;
+	}
+
+	cs_equal_control(&test, control, string_size);
+	cs_cursor_destroy(cursor);
+	free(control);
 }
 
 void test_cursor_insert_clobber()
@@ -430,7 +514,17 @@ void test_cursor_insert_clobber()
 
 }
 
-void test_cursor_erase()
+void test_cursor_erase_begin()
+{
+
+}
+
+void test_cursor_erase_end()
+{
+
+}
+
+void test_cursor_erase_middle()
 {
 
 }
@@ -503,9 +597,13 @@ int main(int argc, char **argv)
 	REGISTER_TEST(test_cursor_prev);
 	REGISTER_TEST(test_cursor_next_prev);
 	REGISTER_TEST(test_cs_cursor_in_range);
-	REGISTER_TEST(test_cursor_insert);
+	REGISTER_TEST(test_cursor_insert_begin);
+	REGISTER_TEST(test_cursor_insert_end);
+	REGISTER_TEST(test_cursor_insert_middle);
 	REGISTER_TEST(test_cursor_insert_clobber);
-	REGISTER_TEST(test_cursor_erase);
+	REGISTER_TEST(test_cursor_erase_begin);
+	REGISTER_TEST(test_cursor_erase_end);
+	REGISTER_TEST(test_cursor_erase_middle);
 	REGISTER_TEST(test_cursor_erase_get);
 	REGISTER_TEST(test_cursor_insert_erase_mixed);
 	REGISTER_TEST(test_cs_push_back);
