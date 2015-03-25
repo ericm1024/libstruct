@@ -130,7 +130,9 @@ void test_list_insert_before_many()
 	
 	assert_equal(control, &tlist, data_length,
 		"test_list_insert_before_many: got invalid list\n.");
-	list_for_each(&tlist, &free);
+
+	list_for_each(&tlist, struct point_t, i)
+		free(i);
 }
 
 void test_list_insert_before_null()
@@ -144,7 +146,9 @@ void test_list_insert_before_null()
 
 	assert_equal(control, &tlist, data_length,
 		     "test_list_insert_before_null: got invalid list\n.");
-	list_for_each(&tlist, &free);
+
+	list_for_each(&tlist, struct point_t, i)
+		free(i);
 }
 
 /* insert after tests */
@@ -161,7 +165,9 @@ void test_list_insert_after_many()
 	
 	assert_equal(control, &tlist, data_length,
 		    "test_list_insert_after_many: got invalid list\n.");
-	list_for_each_range(&tlist, &free, list_first(&tlist), NULL);
+	list_for_each_range(&tlist, struct point_t, i,
+			    list_first(&tlist), NULL)
+		free(i);
 }		
 
 void  test_list_insert_after_null()
@@ -175,7 +181,10 @@ void  test_list_insert_after_null()
 	
 	assert_equal(control, &tlist, data_length,
 		"test_list_insert_after_null: got invalid list\n.");
-	list_for_each_range(&tlist, &free, list_first(&tlist), NULL);
+
+	list_for_each_range(&tlist, struct point_t, i,
+			    list_first(&tlist), NULL)
+		free(i);
 }
 
 /* delete test */
@@ -212,7 +221,9 @@ void test_list_push_front()
 
 	assert_equal(control, &tlist, data_length,
 		     "test_list_push_front: got invalid list.\n");
-	list_for_each(&tlist, &free);
+
+	list_for_each(&tlist, struct point_t, i)
+		free(i);
 }
 
 /* push back test */
@@ -227,7 +238,9 @@ void  test_list_push_back()
 
 	assert_equal(control, &tlist, data_length,
 		     "test_list_push_back: got invalid list.\n");
-	list_for_each(&tlist, &free);
+
+	list_for_each(&tlist, struct point_t, i)
+		free(i);
 }
 
 /* pop front test */
@@ -316,8 +329,12 @@ void test_list_splice_end()
 	ASSERT_TRUE(rest_of_tlist.length == 0,
 		    "test_list_splice_end: splicee was not invalidated.\n");
 
-	list_for_each(&slice_of_tlist, &free);
-	list_for_each_range(&control_tlist, &free, list_first(&control_tlist), NULL);
+	list_for_each(&slice_of_tlist, struct point_t, i)
+		free(i);
+
+	list_for_each_range(&control_tlist, struct point_t, i, 
+			    list_first(&control_tlist), NULL)
+		free(i);
 }
 
 void test_list_splice_middle()
@@ -371,8 +388,12 @@ void test_list_splice_middle()
 	ASSERT_TRUE(middle_of_tlist.length == 0,
 		    "test_list_splice_midde: splicee was not invalidated.\n");
 
-	list_for_each(&rest_of_tlist, &free);
-	list_for_each_range(&control_tlist, &free, list_first(&control_tlist), NULL);
+	list_for_each(&rest_of_tlist, struct point_t, i)
+		free(i);
+
+	list_for_each_range(&control_tlist, struct point_t, i, 
+			    list_first(&control_tlist), NULL)
+		free(i);
 }
 
 void test_list_splice_none()
@@ -389,7 +410,8 @@ void test_list_splice_none()
 	assert_equal(control, &tlist, data_length,
 		     "test_list_splice_none: invalid control list.\n");
 
-	list_for_each(&tlist, &free);
+	list_for_each(&tlist, struct point_t, i)
+		free(i);
 }
 
 /* for each (no actual test, tested in other tests) by calling free */
@@ -421,14 +443,17 @@ void test_list_for_each_range()
 	for (size_t i = 0; i < mend - mstart; end = list_next(&tlist, end), i++)
 		;
 
-	list_for_each_range(&tlist, (void (*)(void *))&mutate_point, start, end);
+	list_for_each_range(&tlist, struct point_t, i, start, end)
+		mutate_point(i);
 
 	/* check for correctness */
 	assert_equal(control, &tlist, data_length,
 		     "test_for_each_range: gor invalid list.\n");
 
 	/* clean up */
-	list_for_each_range(&tlist, &free, list_first(&tlist), NULL);
+	list_for_each_range(&tlist, struct point_t, i,
+			    list_first(&tlist), NULL)
+		free(i);
 }
 
 /* reverse */
@@ -464,7 +489,9 @@ void test_list_reverse()
 	assert_equal(control, &tlist, data_length,
 		     "test_list_reverse: list does not match control"
 		     " after reversing twice.\n");
-	list_for_each(&tlist, &free);
+
+	list_for_each(&tlist, struct point_t, i)
+		free(i);
 }
 
 /* main */

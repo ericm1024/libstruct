@@ -14,11 +14,11 @@ issues:
 
 in progress:
 	btree
-	
+	string	
+
 future structures:
 	vetor
 	skip list
-	string
 	heap
 	counting filter
 	trie (strings)

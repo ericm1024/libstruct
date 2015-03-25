@@ -157,28 +157,6 @@ extern void list_splice(struct list_head *hd, void *after,
 			struct list_head *splicee);
 
 /**
- * \brief Execute a function on each element in the list.
- * \note The function is applied to the container, not the list node itself.
- *
- * \param hd      Pointer to the head of the list.
- * \param f       Pointer to the function to apply to each element.
- */
-extern void list_for_each(struct list_head *hd, void (*f)(void *data));
-
-/**
- * \brief Execute a function on each element in the list in the range [first,
- * last).
- * \note The function is applied to the container, not the list node itself.
- *
- * \param hd      Pointer to the head of the list.
- * \param f       Pointer to the function to apply to each element.
- * \param first   Pointer to the first element to apply the function to.
- * \param last    Pointer to the element after the last element on which the
- *                function will be called.
- */
-extern void list_for_each_range(struct list_head *hd, void (*f)(void *data),
-				void *first, void *last);
-/**
  * \brief Reverse a list.
  *
  * \param hd  Pointer to the head of the list to reverse. 
@@ -234,5 +212,56 @@ static inline void *list_prev(struct list_head *hd, void *elem)
 	return curent->prev ? (void *)((uintptr_t)curent->prev - hd->offset)
 		            : NULL;
 }
+
+/**
+ * \brief Execute a function on each element in the list.
+ * \note The functon is applied to the container, not the list node itself.
+ *
+ * \param list       Pointer to the list to iterate over.
+ * \param type       Type of the enclosing struct. Should be a struct type, not
+ *                   a pointer type.
+ * \param iter_name  (token) name of the iterator variable to declare. The
+ *                   macro decalres a variable of type @type * with this name.
+ *                   Don't decalre one yourself.
+ * \detail           It is safe to use functions like free within this loop.
+ */
+#define list_for_each(list, type, iter_name)				\
+	for (type *iter_name = (type*)list_first(list),			\
+	     *___foreach_next = iter_name    			        \
+		     ? (type*)list_next(list, iter_name)		\
+		     : NULL;						\
+	     iter_name;							\
+	     iter_name = ___foreach_next,				\
+	     ___foreach_next = iter_name				\
+		     ? (type*)list_next(list, iter_name)		\
+		     : NULL)
+
+/**
+ * \brief Execute a function on each element in the list in the range [first,
+ * last).
+ * \note The function is applied to the container, not the list node itself.
+ *
+ * \param list       Pointer to the head of the list.
+ * \param type       Type of the enclosing struct. Should be a struct type, not
+ *                   a pointer type.
+ * \param iter_name  (token) name of the iterator variable to declare. The
+ *                   macro decalres a variable of type @type * with this name.
+ *                   Don't decalre one yourself.
+ * \paarm first      Pointer to the element to start the loop at.
+ * \param last       Pointer to the element at which the loop will stop (the
+ *                   loop will not run for this element)
+ * \detail           It is safe to use functions like free within this loop.
+ */
+#define list_for_each_range(list, type, iter_name, first, last)	\
+	for (type *iter_name = first,				\
+	     *___foreach_next = iter_name			\
+		     ? (type*)list_next(list, iter_name)	\
+		     : NULL;					\
+	     iter_name != last;					\
+	     iter_name = ___foreach_next,			\
+	     ___foreach_next = iter_name			\
+		     ? (type*)list_next(list, iter_name)	\
+		     : NULL)
+
 
 #endif /* STRUCT_LIST_H */

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * \file avl_test.c
+ * \file rbtree_test.c
  *
  * \author Eric Mueller
  *
