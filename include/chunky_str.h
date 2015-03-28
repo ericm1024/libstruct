@@ -160,9 +160,9 @@ extern char cs_cursor_getchar(cs_cursor_t cursor);
 /**
  * \brief Insert a character before a cursor.
  * \param cursor   The cursor. Points to the same character after this
- *                 function is called, unless the string was empty, in which
- *                 it points to the only character in the string.
- * \param c        The character to insert
+ *                 function is called.
+ * \param c        The character to insert. Inserted before the character the
+ *                 cursor currently refers to.
  * \return true if the character was inserted, false if it could not be
  * inserted (for example, if memory needed to be allocated and the
  * allocation failed, or if the cursor was invalid)
@@ -172,7 +172,7 @@ extern bool cs_cursor_insert(cs_cursor_t cursor, char c);
 
 /**
  * \brief Clobber the character at the current cursor with a new one.
- * \param cursor  The cursor
+ * \param cursor  The cursor. Does not move.
  * \param c       The new character.
  * \return true
  */
@@ -180,23 +180,17 @@ extern bool cs_cursor_insert_clobber(cs_cursor_t cursor, char c);
 
 /**
  * \brief Erase the charater at the cursor's location.
- * \param cursor   The cursor. Gets moved to the character before the erased
- *                 character unless the erased character was the first
- *                 character in the string, in which case it stays at the
- *                 beginning of the string.
- * \return True if the erase was valid, false otherwise (i.e. the string was
- * empty).
+ * \param cursor   The cursor. Gets moved to the character after the erased
+ *                 character, possibly moving it off the end.
  */
-extern bool cs_cursor_erase(cs_cursor_t cursor);
+extern void cs_cursor_erase(cs_cursor_t cursor);
 
 /**
  * \brief Erase the charater at the cursor's location and return it.
  * \param cursor   The cursor.
- * \param c        Somewhere to put the character that was removed.
- * \return True if the erase was valid, false otherwise (i.e. the string was
- * empty).
+ * \return The character that was erased.
  */
-extern bool cs_cursor_erase_get(cs_cursor_t cursor, char *c);
+extern char cs_cursor_erase_get(cs_cursor_t cursor);
 
 
 
@@ -242,7 +236,7 @@ extern bool cs_clone(struct chunky_str *cs, struct chunky_str *clone);
  * \brief Create a c string representation of @cs.
  * \param cs       The struct chunky_str to turn into a c string.
  * \param length   Pointer to long where the length of the string is written
- * to.
+ * to. Length includes the terminating null.
  * \return Pointer to a heap allocated string. Must be freed by the caller.
  * \detail **NOTE** Because of how c strings are expected to behave, this
  * function will only copy the elements in @cs up to the first null byte.

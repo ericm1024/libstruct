@@ -49,8 +49,11 @@ typedef char char_t;
 #define CACHELINE (64U)
 /* wild guess of optimal size with no basis  */
 #define CHUNKSIZE (CACHELINE*2)
+/*
 #define NCHARS								\
 	((CHUNKSIZE - (sizeof(struct list) + sizeof(short)))/sizeof(char_t))
+*/
+#define NCHARS 8
 
 struct cs_chunk {
 	struct list link; /* chunk list. do NOT move this from offset 0 */
@@ -71,11 +74,6 @@ struct cs_cursor {
 /* ========================================================================== */
 
 #define CURSOR_DEREF(curs) (curs)->chunk->chars[(curs)->index]
-
-static inline bool string_is_empty(struct chunky_str *cs)
-{
-	return cs->nchars == 0;
-}
 
 static inline bool chunk_is_full(struct cs_chunk *chunk)
 {
@@ -118,42 +116,24 @@ static bool split_chunk_cursor(struct cs_cursor *cursor)
 	return true;
 }
 
-static void maybe_merge_chunk(struct cs_cursor *cursor)
+/*
+ * merge chunk prev with next. fees next and removes it from the list.
+ * returns the number of chars that were added to prev.
+ */ 
+static unsigned long merge_two_chunks(struct chunky_str *cs,
+				      struct cs_chunk *prev,
+				      struct cs_chunk *next)
 {
-	struct cs_chunk *current = cursor->chunk;
-	struct cs_chunk *prev;
-	struct cs_chunk *next;
 	unsigned long i;
 	unsigned long j;
-	unsigned long end;
-
-	assert(current);
-
-	prev = list_prev(&cursor->owner->str, current);
-	next = list_next(&cursor->owner->str, current);
 	
-	/* Put the two adjacent chunks we want to merge into next and prev */ 
-	if (prev && prev->end + current->end <= NCHARS)
-		next = current;
-	else if (next && next->end + current->end <= NCHARS)
-		prev = current;
-	else
-		return;
-	
-	/* merge next into prev */
-	end = next->end;
-	for (i = prev->end, j = 0; j < end; i++, j++)
+	for (i = prev->end, j = 0; j < next->end; i++, j++)
 		prev->chars[i] = next->chars[j];
-	prev->end = i;
-	list_delete(&cursor->owner->str, next);
-	free(next);
 
-	/* fix cursor, if necessary */
-	if (current == next) {
-		cursor->chunk = prev;
-		cursor->index += prev->end;
-		assert(cursor->index < NCHARS);
-	}
+	list_delete(&cs->str, next);
+	free(next);
+	prev->end = i;
+	return j;
 }
 
 #define SHIFT_FORWARD (1L)
@@ -182,6 +162,7 @@ static void shift_chars(struct cs_chunk *chunk, unsigned long start, long shift)
 			chars[start] = chars[start + 1];
 
 	chunk->end += shift;
+	assert(chunk->end <= NCHARS);
 }
 
 
@@ -256,9 +237,10 @@ char cs_cursor_next(cs_cursor_t cursor)
 char cs_cursor_prev(cs_cursor_t cursor)
 {
 	cursor->index--;
-	if (!cursor->chunk)
-		cs_cursor_end(cursor);
-	if (cursor->index >= cursor->chunk->end) {
+	if (!cursor->chunk) {
+		cursor->chunk = list_last(&cursor->owner->str);
+		cursor->index = cursor->chunk->end - 1;
+	} else if (cursor->index >= cursor->chunk->end) {
 		cursor->chunk = list_prev(&cursor->owner->str, cursor->chunk);
 		if (cursor->chunk)
 			cursor->index = cursor->chunk->end - 1;
@@ -273,18 +255,19 @@ char cs_cursor_getchar(cs_cursor_t cursor)
 
 bool cs_cursor_insert(cs_cursor_t cursor, char c)
 {
-	bool ret;
 	/* end cursor. also accounts for empty string */
 	if (!cursor->chunk) {
-		ret = cs_push_back(cursor->owner, c);
+		if (!cs_push_back(cursor->owner, c))
+			return false;
 		cs_cursor_end(cursor);
-		return ret;
+		return true;
 	} else if (chunk_is_full(cursor->chunk) && !split_chunk_cursor(cursor))
 		return false;
 	
 	shift_chars(cursor->chunk, cursor->index, SHIFT_FORWARD);
 	CURSOR_DEREF(cursor) = c;
 	cursor->owner->nchars++;
+	cs_cursor_next(cursor);
 	return true;
 }
 
@@ -294,30 +277,48 @@ bool cs_cursor_insert_clobber(cs_cursor_t cursor, char c)
 	return true;
 }
 
-bool cs_cursor_erase(cs_cursor_t cursor)
+void cs_cursor_erase(cs_cursor_t cursor)
 {
-	if (string_is_empty(cursor->owner))
-		return false;
-
+	struct cs_chunk *chunk = cursor->chunk;
+	struct cs_chunk *prev;
+	struct cs_chunk *next;
+	
 	/* clobber the character */
-	shift_chars(cursor->chunk, cursor->index, SHIFT_REVERSE);
-	maybe_merge_chunk(cursor);
+	shift_chars(chunk, cursor->index, SHIFT_REVERSE);
 	cursor->owner->nchars--;
 
-	/* move the cursor back one character, if we have room */
-	if (list_prev(&cursor->owner->str, cursor->chunk) || cursor->index != 0)
-		cs_cursor_prev(cursor);
+	/* we emptied the string */
+	if (cursor->owner->nchars == 0) {
+		list_delete(&cursor->owner->str, chunk);
+		free(chunk);
+		cursor->index = 0;
+		cursor->chunk = NULL;
+		return;
+	}
+	
+	prev = list_prev(&cursor->owner->str, chunk);
+	next = list_next(&cursor->owner->str, chunk);
 
-	return true;
+	/* merge chunks, if we can */
+	if (prev && prev->end + chunk->end <= NCHARS) {
+		cursor->index += merge_two_chunks(cursor->owner, prev, chunk);
+		cursor->chunk = prev;
+	} else if (next && next->end + chunk->end <= NCHARS) {
+		merge_two_chunks(cursor->owner, chunk, next);
+	}
+	
+	/* fix up the cursor */
+	if (cursor->index >= cursor->chunk->end) {
+		cursor->chunk = list_next(&cursor->owner->str, cursor->chunk);
+		cursor->index= 0;
+	}
 }
 
-bool cs_cursor_erase_get(cs_cursor_t cursor, char *c)
+char cs_cursor_erase_get(cs_cursor_t cursor)
 {
-	if (string_is_empty(cursor->owner))
-		return false;
-
-	*c = CURSOR_DEREF(cursor);
-	return cs_cursor_erase(cursor);
+	char c = CURSOR_DEREF(cursor);
+	cs_cursor_erase(cursor);
+	return c;
 }
 
 
@@ -341,8 +342,7 @@ bool cs_push_back(struct chunky_str *cs, char c)
 		if (!split_chunk(cs, last))
 			return false;
 		/* last is no longer last, so grab the actual last chunk */
-		else
-			last = list_last(&cs->str);
+		last = list_last(&cs->str);
 	}
 	
 	last->chars[last->end] = c;
@@ -383,24 +383,25 @@ void cs_destroy(struct chunky_str *cs)
 
 bool cs_clone(struct chunky_str *cs, struct chunky_str *clone)
 {
-	struct cs_chunk *pool;
-	unsigned long i = 0;
+	struct cs_chunk *chunk;
 	*clone = CHUNKY_STRING_DEFAULT;
-
-	/*
-	 * It would be prettier to use the cursors we've spent so much time
-	 * writing, but it's faster to just malloc all the chunks in one big
-	 * blob because malloc is slow.
-	 */
-	pool = malloc(sizeof(struct cs_chunk) * cs->str.length);
-	if (!pool)
-		return false;
+	
 	list_for_each(&cs->str, struct cs_chunk, node) {
-		pool[i] = *node;
-		list_push_back(&clone->str, &pool[i]);
+		chunk = malloc(sizeof (struct cs_chunk));
+		if (!chunk) 
+			goto free_clone;
+
+		*chunk = *node;
+		list_push_back(&clone->str, chunk);
 	}
+	
 	clone->nchars = cs->nchars;
 	return true;
+
+free_clone:
+	list_for_each(&clone->str, struct cs_chunk, node)
+		free(node);
+	return false;
 }
 
 char *cs_to_cstring(struct chunky_str *cs, unsigned long *length)
@@ -421,12 +422,13 @@ char *cs_to_cstring(struct chunky_str *cs, unsigned long *length)
 
 	cs_for_each(&cursor) {
 		c = cs_cursor_getchar(&cursor);
-		if (!c)
-			break;
-		cstr[i] = c;
-		i++;
+		cstr[i++] = c;
+		if (c == NULL_BYTE) {
+			*length = i;
+			return cstr;
+		}
 	}
-	cstr[i] = NULL_BYTE;
+	cstr[i++] = NULL_BYTE;
 	*length = i;
 	return cstr;
 }
@@ -440,10 +442,9 @@ unsigned long cs_write(struct chunky_str *cs, char *buf, unsigned long size)
 
 	cs_for_each(&cursor) {
 		c = cs_cursor_getchar(&cursor);
-		if (i > nchars)
+		if (i >= nchars)
 			break;
-		buf[i] = c;
-		i++;
+		buf[i++] = c;
 	}
 
 	return i*sizeof(char_t);

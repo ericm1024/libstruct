@@ -137,10 +137,12 @@ void walk_cursor(cs_cursor_t cursor, long offset)
 void walk_cursor_wrap(cs_cursor_t cursor, unsigned long offset)
 {
 	for (unsigned long i = 0; i < offset; i++) {
-		cs_cursor_next(cursor);
 		if (!cs_cursor_in_range(cursor))
 			cs_cursor_begin(cursor);
+		cs_cursor_next(cursor);
 	}
+	if (!cs_cursor_in_range(cursor))
+		cs_cursor_begin(cursor);
 }
 
 void three_equal_cursors(cs_cursor_t a, cs_cursor_t b, cs_cursor_t c)
@@ -174,6 +176,7 @@ void cs_equal_control(struct chunky_str *cs, char *control, unsigned long len)
 	ASSERT_FALSE(cs_cursor_in_range(cursor),
 		     "cs_equal_control: cursor still in range after traversing "
 		     "entire string.\n");
+	cs_cursor_destroy(cursor);
 }
 
 
@@ -189,6 +192,7 @@ void test_cursor_get_destroy()
 	cs_cursor_t cursor = cs_cursor_get(&test);
 	cs_cursor_destroy(cursor);
 	free(control);
+	cs_destroy(&test);
 	/*
 	 * valgrind will catch memory leaks, which is all we really care about
 	 * here
@@ -210,6 +214,7 @@ void test_cursor_clone()
 	cs_cursor_destroy(b);
 	cs_cursor_destroy(c);
 	free(control);
+	cs_destroy(&test);	
 }
 
 void test_cursor_equal_move()
@@ -241,6 +246,7 @@ void test_cursor_equal_move()
 	cs_cursor_destroy(b);
 	cs_cursor_destroy(c);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cursor_equal_falsepos_same()
@@ -270,6 +276,7 @@ void test_cursor_equal_falsepos_same()
 	cs_cursor_destroy(a);
 	cs_cursor_destroy(b);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cursor_equal_falsepos_diff()
@@ -296,6 +303,8 @@ void test_cursor_equal_falsepos_diff()
 	cs_cursor_destroy(b);
 	free(control_a);
 	free(control_b);
+	cs_destroy(&test_a);
+	cs_destroy(&test_b);
 }
 
 /*
@@ -321,15 +330,9 @@ void test_cursor_begin_end()
 	ASSERT_TRUE(cs_cursor_getchar(end) == control[0],
 		    "new begin cursor did not give first char in string.\n");
 
-
-	printf("got here\n");
-
 	/* shuffle them around a bit, then move them back */
 	walk_cursor_wrap(begin, rand() % string_size);
 	walk_cursor_wrap(end, rand() % string_size);
-
-	printf("got here\n");
-
 	cs_cursor_begin(begin);
 	cs_cursor_end(end);
  	ASSERT_TRUE(cs_cursor_getchar(begin) == control[0],
@@ -338,6 +341,7 @@ void test_cursor_begin_end()
 	cs_cursor_destroy(begin);
 	cs_cursor_destroy(end);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cursor_next()
@@ -362,6 +366,7 @@ void test_cursor_next()
 
 	cs_cursor_destroy(cursor);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cursor_prev()
@@ -370,17 +375,18 @@ void test_cursor_prev()
 	char *control = get_test_string(string_size);
 	init_cs(&test, control, string_size);
 	cs_cursor_t cursor = cs_cursor_get(&test);
-	char c;
 	cs_cursor_end(cursor);
 
 	for (long i = string_size - 1; i >= 0; i--) {
-		c = cs_cursor_prev(cursor);
+		ASSERT_TRUE(cs_cursor_prev(cursor) == control[i],
+			    "cs_cursor_prev give invalid character.\n");
 		ASSERT_TRUE(cs_cursor_getchar(cursor) == control[i],
 			    "cs_cursor_getchar gave invalid character.\n");
 	}
 
 	cs_cursor_destroy(cursor);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cursor_next_prev()
@@ -407,6 +413,7 @@ void test_cursor_next_prev()
 
 	cs_cursor_destroy(cursor);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cs_cursor_in_range()
@@ -435,6 +442,7 @@ void test_cs_cursor_in_range()
 		     "cursor was in range after traversing entire string.\n");
 	cs_cursor_destroy(cursor);
 	free(control);
+	cs_destroy(&test);
 }
 
 /*
@@ -461,6 +469,7 @@ void test_cursor_insert_begin()
 	cs_equal_control(&test, control, string_size);
 	cs_cursor_destroy(cursor);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cursor_insert_end()
@@ -475,6 +484,7 @@ void test_cursor_insert_end()
 	cs_equal_control(&test, control, string_size);
 	cs_cursor_destroy(cursor);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cursor_insert_middle()
@@ -507,36 +517,150 @@ void test_cursor_insert_middle()
 	cs_equal_control(&test, control, string_size);
 	cs_cursor_destroy(cursor);
 	free(control);
+	cs_destroy(&test);
 }
 
 void test_cursor_insert_clobber()
 {
+	CHUNKY_STRING(test);
+	char *control_a = get_test_string(string_size);
+	char *control_b = get_test_string(string_size);
+	init_cs(&test, control_a, string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
 
+	for (unsigned long i = 0; i < string_size; i++) {
+		cs_cursor_insert_clobber(cursor, control_b[i]);
+		cs_cursor_next(cursor);
+	}
+
+	cs_equal_control(&test, control_b, string_size);
+	cs_cursor_destroy(cursor);
+	free(control_a);
+	free(control_b);
+	cs_destroy(&test);
 }
 
 void test_cursor_erase_begin()
 {
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	init_cs(&test, control, string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
 
+	for (unsigned long i = 0; i < string_size; i++)
+		cs_cursor_erase(cursor);
+	
+	ASSERT_TRUE(test.nchars == 0, "chunky_str->nchars was not zero after "
+		    "erasing entire string.\n");
+	ASSERT_TRUE(test.str.first == NULL, "chunky_str.str.first was not "
+		    "null after erasing entire string.\n");
+	free(control);
+	cs_cursor_destroy(cursor);
 }
 
 void test_cursor_erase_end()
 {
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	init_cs(&test, control, string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
+	cs_cursor_end(cursor);
 
+	for (unsigned long i = 0; i < string_size; i++) {
+		cs_cursor_prev(cursor);
+		cs_cursor_erase(cursor);
+	}
+	
+	free(control);
+	cs_cursor_destroy(cursor);
+	ASSERT_TRUE(test.nchars == 0, "chunky_str->nchars was not zero after "
+		    "erasing entire string.\n");
+	ASSERT_TRUE(test.str.first == NULL, "chunky_str.str.first was not "
+		    "null after erasing entire string.\n");	
 }
 
 void test_cursor_erase_middle()
 {
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	init_cs(&test, control, string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
+	long length = string_size;
+	
+	walk_cursor(cursor, string_size/2);
+	
+	while (length > 0)
+		for (cs_cursor_begin(cursor), walk_cursor_wrap(cursor, length/2);
+		     cs_cursor_in_range(cursor);
+		     length--)
+			cs_cursor_erase(cursor);
 
+	ASSERT_TRUE(length == 0, "not enough characters were erased.\n");
+	ASSERT_TRUE(test.nchars == 0, "chunky_str->nchars was not zero after "
+		    "erasing entire string.\n");
+	ASSERT_TRUE(test.str.first == NULL, "chunky_str.str.first was not "
+		    "null after erasing entire string.\n");
+	ASSERT_FALSE(cs_cursor_in_range(cursor),
+		     "cursor is still in range.\n");
+	
+	free(control);
+	cs_cursor_destroy(cursor);
 }
 
 void test_cursor_erase_get()
 {
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	init_cs(&test, control, string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
+	unsigned long i;
+	
+	for (i = 0; i < string_size; i++)
+		ASSERT_TRUE(cs_cursor_erase_get(cursor) == control[i],
+			    "erase_get returned wrong character.\n");
+	ASSERT_TRUE(test.nchars == 0, "chunky_str->nchars was not zero after "
+		    "erasing entire string.\n");
+	ASSERT_TRUE(test.str.first == NULL, "chunky_str.str.first was not "
+		    "null after erasing entire string.\n");
 
+	free(control);
+	cs_cursor_destroy(cursor);
 }
 
 void test_cursor_insert_erase_mixed()
 {
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	init_cs(&test, control, string_size);
+	cs_cursor_t cursor = cs_cursor_get(&test);
+	unsigned long i;
+	
+	/*
+	 * The idea is to pummel insert and erase at random locations in
+	 * the string in an effort to cause a segfault. Getting this to match
+	 * a c-string would be obnoxious so we don't have a control.
+	 */
+	for (i = 0; i < NMOVES && test.nchars; i++) {
+		if (rand() & 1) {
+			walk_cursor_wrap(cursor, rand() % test.nchars);
+			cs_cursor_insert(cursor, random_char());
+		} else {
+			walk_cursor_wrap(cursor, rand() % test.nchars);
+			cs_cursor_erase(cursor);
+		}
+	}
 
+	cs_cursor_begin(cursor);
+	while (test.nchars)
+		cs_cursor_erase(cursor);
+
+	free(control);
+	cs_cursor_destroy(cursor);
+
+	ASSERT_TRUE(test.nchars == 0, "chunky_str->nchars was not zero after "
+		    "erasing entire string.\n");
+	ASSERT_TRUE(test.str.first == NULL, "chunky_str.str.first was not "
+		    "null after erasing entire string.\n");
 }
 
 
@@ -546,38 +670,175 @@ void test_cursor_insert_erase_mixed()
 
 void test_cs_push_back()
 {
-
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	unsigned int i;
+	cs_cursor_t cursor = cs_cursor_get(&test);
+	
+	for (i = 0; i < string_size; i++) {
+		cs_push_back(&test, control[i]);
+		cs_cursor_end(cursor);
+		cs_cursor_prev(cursor);
+		ASSERT_TRUE(cs_cursor_getchar(cursor) == control[i],
+			    "end cursor does not match pushed back character.\n");
+		ASSERT_TRUE(test.nchars == i+1,
+			    "bad string.nchars.\n");
+		
+	}
+	cs_equal_control(&test, control, string_size);
+	free(control);
+	cs_cursor_destroy(cursor);
+	cs_destroy(&test);
 }
 
 void test_cs_push_front()
 {
-
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	unsigned int i;
+	cs_cursor_t cursor = cs_cursor_get(&test);
+	
+	for (i = string_size; i > 0; i--) {
+		cs_push_front(&test, control[i-1]);
+		cs_cursor_begin(cursor);
+		ASSERT_TRUE(cs_cursor_getchar(cursor) == control[i-1],
+			    "begin cursor does not match pushed front character.\n");
+		ASSERT_TRUE(test.nchars == string_size - i + 1,
+			    "bad string.nchars.\n");
+		
+	}
+	cs_equal_control(&test, control, string_size);
+	cs_destroy(&test);
+	free(control);
+	cs_cursor_destroy(cursor);
 }
 
 void test_cs_destroy()
 {
-
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	init_cs(&test, control, string_size);
+	cs_equal_control(&test, control, string_size);
+	free(control);
+	cs_destroy(&test);
 }
 
 void test_cs_clone()
 {
+	CHUNKY_STRING(test);
+	CHUNKY_STRING(clone);
+	char *control = get_test_string(string_size);
+	char *control_b = get_test_string(string_size);
+	init_cs(&test, control, string_size);
+	cs_clone(&test, &clone);
+	cs_cursor_t cursor = cs_cursor_get(&clone);
+	
+	cs_equal_control(&test, control, string_size);
+	cs_equal_control(&clone, control, string_size);
 
+	/*
+	 * The idea is to modify the clone string, then make sure that
+	 * the clone has changed properly and that the original has not
+	 */ 
+	for (unsigned long i = 0; i < string_size; i++) {
+		cs_cursor_insert_clobber(cursor, control_b[i]);
+		cs_cursor_next(cursor);
+	}
+
+	cs_equal_control(&test, control, string_size);
+	cs_equal_control(&clone, control_b, string_size);
+	
+	free(control);
+	free(control_b);
+	cs_destroy(&test);
+	cs_destroy(&clone);
+	cs_cursor_destroy(cursor);
 }
 
 void test_cs_to_cstring()
 {
+	CHUNKY_STRING(test);
+	char *control = malloc(sizeof(char)*string_size);
+	ASSERT_TRUE(control, "malloc barfed.\n");
+	char c;
+	unsigned long length;
 
+	for (unsigned long i = 0; i < string_size; i++) {
+		while ((c = random_char()) == '\0')
+			;
+		control[i] = c;
+	}
+	
+	init_cs(&test, control, string_size);
+	char *result = cs_to_cstring(&test, &length);
+	ASSERT_TRUE(length == string_size + 1,
+		    "cs_to_cstring gave wrong length.\n");
+	for (unsigned long i = 0; i < string_size; i++) {
+		ASSERT_TRUE(result[i] == control[i],
+			    "cs_to_cstring gave invalid string.\n");
+	}
+	ASSERT_TRUE(result[string_size] == '\0',
+		    "result was not null terminated.\n");
+
+	cs_destroy(&test);
+	free(result);
+
+	control[string_size/2] = '\0';
+	init_cs(&test, control, string_size);
+	result = cs_to_cstring(&test, &length);
+	ASSERT_TRUE(length == string_size/2 + 1,
+		    "cs_to_cstring with partial string gave wrong length.\n");
+	for (unsigned long i = 0; i < string_size/2 + 1; i++) {
+		ASSERT_TRUE(result[i] == control[i], "cs_to_cstring with "
+			    "partial string gave invalid string.\n");
+	}
+
+	cs_destroy(&test);
+	free(result);
+	free(control);
 }
 
 void test_cs_write()
 {
+	CHUNKY_STRING(test);
+	char *control = get_test_string(string_size);
+	init_cs(&test, control, string_size);
+	char *buf = malloc(sizeof(char)*(string_size + 1));
+	ASSERT_TRUE(buf, "malloc barfed.\n");
+	char cannary = random_char();
 
+	/* only fill half the buffer */
+	buf[string_size/2] = cannary;
+	unsigned long nbytes = cs_write(&test, buf, string_size/2);
+	ASSERT_TRUE(nbytes == sizeof(char)*(string_size/2), "cs_write returned "
+		    "the wrong number of bytes for half-full buf.\n");
+	ASSERT_TRUE(buf[string_size/2] == cannary,
+		    "cs_write overwrote end of buffer.\n");
+	for (unsigned long i = 0; i < string_size/2; i++)
+		ASSERT_TRUE(buf[i] == control[i], "output buffer does not "
+			    "match control for half-full buf.\n");
+
+	/* fill the whole buffer */
+	buf[string_size] = cannary;
+	nbytes = cs_write(&test, buf, string_size);
+	ASSERT_TRUE(nbytes == sizeof(char)*string_size,
+		    "cs_write returned the wrong number of bytes.\n");
+	ASSERT_TRUE(buf[string_size] == cannary,
+		    "cs_write overwrote end of buffer.\n");
+	for (unsigned long i = 0; i < string_size; i++)
+		ASSERT_TRUE(buf[i] == control[i],
+			    "output buffer does not match control.\n");
+
+	free(buf);
+	free(control);
+	cs_destroy(&test);
 }
 
-void test_cs_for_each()
-{
-
-}
+/*
+ * cs_for_each is tested implicitly as it is used in many of the
+ * implementations of the previously tested functions (I know I should
+ * probably still write a test but bite me.
+ */
 
 /**** main ****/
 
@@ -612,16 +873,16 @@ int main(int argc, char **argv)
 	REGISTER_TEST(test_cs_clone);
 	REGISTER_TEST(test_cs_to_cstring);
 	REGISTER_TEST(test_cs_write);
-	REGISTER_TEST(test_cs_for_each);
 
 	/* some of the false positive tests depend on this being at least 2*/
-	string_size = 2;
+	string_size = 5;
 	if (!run_all_tests())
 		passed = false;
-
+	
 	string_size = 100;
 	if (!run_all_tests())
 		passed = false;
+
 
 	string_size = 10000;
 	if (!run_all_tests())
