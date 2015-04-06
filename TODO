@@ -5,7 +5,7 @@ tests:
 
 bugs:
 	- hash table implementation does not shrink when it can
-	- linked list is failing a test
+	- rbtree postorder itteration is failing.
 
 issues:
 	- posix memalign exists on OSX but it does not define the macros
@@ -14,22 +14,22 @@ issues:
 
 in progress:
 	btree
-	string	
 
 future structures:
 	vetor
 	skip list
-	heap
+	heap (binary, binomial, fibonacci)
 	counting filter
 	trie (strings)
 	radix tree (integers)
+	union-join
 
-housekeeping:
+housekeeping/etc:
 	- clean up make files, put variables in top level make file, use
 	  seperate build directory
 	- write a make target that actually compiles the code as a shared
 	  library (i.e. make the damn thing usable)
-	- write a shell script to run tests.  
+	- write a shell script to run tests.
 
 refactoring:
 	- do a once over of all old code, particularly avl_tree. There
@@ -37,3 +37,6 @@ refactoring:
 	- remove typdefs for structs, old style was better (i.e. revert to
 	  always using struct foo instead of typedef'ing "struct foo" to
 	  "foo_t" everywhere)
+
+wish list:
+	- benchmark and optimize all structures
