@@ -57,7 +57,6 @@ struct chunky_str {
 	unsigned long nchars;
 };
 
-
 /**
  * \brief Definition of a default chunky string.
  */ 
