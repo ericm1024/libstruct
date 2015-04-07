@@ -97,7 +97,7 @@ static inline void binary_heap_clear(struct binary_heap *heap)
  * \brief Shrink a heap. It is generally not necessary to call this function
  * because binary_heap_pop will shrink itself.
  * \param heap       The heap to shrink.
- * \param new_cap    The new size of the heap.
+ * \param new_cap    The new size of the heap. This *must* be smaller.
  * \note O(n) complexity, where n is the number of elements in the heap.
  */
 void binary_heap_shrink(struct binary_heap *heap, unsigned long new_cap);
@@ -140,7 +140,8 @@ bool binary_heap_insert(struct binary_heap *heap, unsigned long key,
 /**
  * \brief Merge two binary heaps.
  * \param heap     The heap to merge into.
- * \param victim   The heap to merge from.
+ * \param victim   The heap to merge from. This heap is rendered empty after
+ *                 this function call.
  * \return true if the merge succeeded, false if memory allocation failed.
  * \note O(m*log(n)) complexity, where m is the number of elements in the
  * smaller heap and n is the number of elements in the larger heap.
