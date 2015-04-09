@@ -55,7 +55,7 @@
 /**** global tesing types, variables, and macros ****/
 
 /* size of test lists */
-#define TEST_N 100000
+#define TEST_N 10000
 
 struct test_kv {
 	unsigned long key;

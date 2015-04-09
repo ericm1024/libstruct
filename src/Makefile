@@ -4,7 +4,7 @@ INCLUDE = ../include
 RNG = ./pcg-c-master
 CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
 TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test \
-	chunky_str_test
+	  chunky_str_test binary_heap_test
 #VALGRIND = valgrind --leak-check=full
 VALGRIND = ''
 
@@ -43,6 +43,9 @@ rbtree_test: rbtree_test.o rbtree.o test.o
 	$(CC) $(CFLAGS) -lm -o $@ $^
 
 chunky_str_test: chunky_str_test.o list.o chunky_str.o test.o
+	$(CC) $(CFLAGS) -lm -o $@ $^
+
+binary_heap_test: binary_heap_test.o binary_heap.o test.o
 	$(CC) $(CFLAGS) -lm -o $@ $^
 
 flist_test.o: flist_test.c flist.h
@@ -97,4 +100,10 @@ chunky_str.o: chunky_str.c chunky_str.h list.h
 	$(CC) $(CFLAGS) -c $<
 
 chunky_str_test.o: chunky_str_test.c chunky_str.h
+	$(CC) $(CFLAGS) -c $<
+
+binary_heap.o: binary_heap.c binary_heap.h
+	$(CC) $(CFLAGS) -c $<
+
+binary_heap_test.o: binary_heap_test.c binary_heap.h
 	$(CC) $(CFLAGS) -c $<
