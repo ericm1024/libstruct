@@ -17,7 +17,7 @@
  *
  * \author Eric Mueller
  * 
- * \brief Header file for a binary heap.
+ * \brief Header file for a binary minheap.
  *
  * \detail TODO 
  */
@@ -48,9 +48,9 @@ struct binary_heap {
  * memory.
  */
 #define BINARY_HEAP(name)						\
-	struct binary_heap name = {.size = 0;				\
-	                           .end = 0;                            \
-	                           .heap = NULL; };
+	struct binary_heap name = {.capacity = 0,			\
+	                           .end = 0,                            \
+	                           .heap = NULL};
 
 
 
@@ -76,7 +76,8 @@ void binary_heap_destroy(struct binary_heap *heap);
  * \brief Grow a heap. It is generally not necessary to call this function.
  * \param heap       The heap to grow.
  * \param new_cap    The new capacity of the heap in number of elements.
- *                   Needs to be larger.
+ *                   Needs to be greater than or equal to current capacity.
+ *                   If equal, no action is taken and true is returned.
  * \return true if the resize suceeded, false if memory could not be
  * allocated.
  * \note O(n) complexity, where n is the number of elements in the heap
@@ -99,8 +100,9 @@ static inline void binary_heap_clear(struct binary_heap *heap)
  * \param heap       The heap to shrink.
  * \param new_cap    The new size of the heap. This *must* be smaller.
  * \note O(n) complexity, where n is the number of elements in the heap.
+ * \return true if sucessfull. false if realloc fails
  */
-void binary_heap_shrink(struct binary_heap *heap, unsigned long new_cap);
+bool binary_heap_shrink(struct binary_heap *heap, unsigned long new_cap);
 
 
 
@@ -115,8 +117,9 @@ void binary_heap_shrink(struct binary_heap *heap, unsigned long new_cap);
  * \param val    Where the popped value is put.
  * \note O(log(n)) complexity, where n is the number of elements in the heap.
  */
-void binary_heap_pop(struct binary_heap *heap, unsigned long *key,
-		     const void **val);
+void binary_heap_pop(struct binary_heap * restrict heap,
+		     unsigned long * restrict key,
+		     const void ** restrict val);
 
 /**
  * \brief Peek at the first kv-pair in the heap
@@ -146,6 +149,7 @@ bool binary_heap_insert(struct binary_heap *heap, unsigned long key,
  * \note O(m*log(n)) complexity, where m is the number of elements in the
  * smaller heap and n is the number of elements in the larger heap.
  */
-bool binary_heap_merge(struct binary_heap *heap, struct binary_heap *victim);
+bool binary_heap_merge(struct binary_heap * restrict heap,
+		       struct binary_heap * restrict victim);
 
 #endif /* STRUCT_BINARY_HEAP_H */

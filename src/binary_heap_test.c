@@ -67,7 +67,7 @@ bool is_valid_heap_node(struct binary_heap *heap, unsigned long index)
 	if (index >= heap->end)
 		return true;
 	unsigned long rchild_index = index*2 + 2;
-	unsigned long lchind_index = index*2 + 1;
+	unsigned long lchild_index = index*2 + 1;
 	bool okay = true;
 	
 	/* must be less than rchild */
@@ -99,7 +99,7 @@ void init_test_data()
 		test_data_ordered[i] = test_data[i];
 	}
 	/* permute the array */
-	for (unsigned long i = TEST_N - 1; i-- > 0; ) {
+	for (unsigned long i = TEST_N - 1; i > 0; i--) {
 		unsigned long j = rand() % i;
 		struct test_kv tmp = test_data[i];
 		test_data[i] = test_data[j];
@@ -149,7 +149,7 @@ void test_grow()
 	ASSERT_TRUE(test.end == TEST_N, "grow changed end\n");
 	for (unsigned long i = 0; i < TEST_N; i++) {
 		unsigned long key;
-		void *value;
+		const void *value;
 		binary_heap_pop(&test, &key, &value);
 		ASSERT_TRUE(key == i, "popped wrong key after grow\n");
 	}
@@ -175,16 +175,17 @@ void test_shrink_clear()
 	ASSERT_TRUE(test.end == 0, "clear did not clear\n");
 
 	for (unsigned long i = 0; i < TEST_N/2; i++)
-		binary_heap_insert(&test, test_data[i].key,
-				   &test_data[i].value);
+		binary_heap_insert(&test, test_data_ordered[i].key,
+				   &test_data_ordered[i].value);
 	
 	binary_heap_shrink(&test, TEST_N/2);
-	ASERT_TRUE(test.capacity == TEST/2, "shrink did not change capacity\n");
+	ASSERT_TRUE(test.capacity == TEST_N/2,
+		    "shrink did not change capacity\n");
 	ASSERT_TRUE(is_valid_heap(&test), "heap was not valid after shrink\n");
 	
 	for (unsigned long i = 0; i < TEST_N/2; i++) {
 		unsigned long key;
-		void *value;
+		const void *value;
 		binary_heap_pop(&test, &key, &value);
 		ASSERT_TRUE(key == i, "popped value was wrong\n");
 	}
@@ -205,7 +206,7 @@ void test_pop()
 
 	for (unsigned long i = 0; i < TEST_N; i++) {
 		unsigned long key;
-		void *value;
+		const void *value;
 		binary_heap_pop(&test, &key, &value);
 		ASSERT_TRUE((test.end + 1) * 2 > test.capacity,
 			    "did not resize\n");
@@ -241,13 +242,13 @@ void test_insert()
 		if (should_resize)
 			ASSERT_TRUE(test.capacity > old_cap,
 				    "heap did not resize when full\n");
-		ASSERT_TRUE(is_vaid_heap(&test),
+		ASSERT_TRUE(is_valid_heap(&test),
 			    "heap was not valid after insert\n");
 	}
 
 	for (unsigned long i = 0; i < TEST_N; i++) {
 		unsigned long key;
-		void *value;
+		const void *value;
 		binary_heap_pop(&test, &key, &value);
 
 		ASSERT_TRUE(key == test_data_ordered[i].key,
@@ -290,8 +291,8 @@ void test_merge()
 	
 	for (unsigned long i = 0; i < TEST_N; i++) {
 		unsigned long key;
-		void *value;
-		binary_heap_pop(&test, &key, &value);
+		const void *value;
+		binary_heap_pop(&test_a, &key, &value);
 
 		ASSERT_TRUE(key == test_data_ordered[i].key,
 			    "popped wrong key\n");
