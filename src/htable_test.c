@@ -36,7 +36,7 @@
  *       about you, but I don't have that much memory.
  */
 
-#define n 100
+#define n 100000
 struct value { int x; int y; };	
 
 /* 
@@ -119,7 +119,6 @@ void test_insert_many()
         
 	ASSERT_TRUE(t.entries == n, "test_insert_many: entries was not "
 		"incremented properly.\n");
-        printf("entries is %zu \n", t.entries);
 
 	for (size_t i = 0; i < n; i++)
 		ASSERT_TRUE(htable_exists(&t, i), "test_insert_many: elements "

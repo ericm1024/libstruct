@@ -4,7 +4,7 @@ tests:
 	testee.
 
 bugs:
-	- hash table implementation does not shrink when it can
+	- hash table is bassicly broken
 	- rbtree postorder itteration is failing.
 
 issues:
@@ -16,9 +16,8 @@ in progress:
 	btree
 
 future structures:
-	vetor
 	skip list
-	heap (binary, binomial, fibonacci)
+	heap (binomial, fibonacci)
 	counting filter
 	trie (strings)
 	radix tree (integers)
@@ -37,6 +36,7 @@ refactoring:
 	- remove typdefs for structs, old style was better (i.e. revert to
 	  always using struct foo instead of typedef'ing "struct foo" to
 	  "foo_t" everywhere)
+	- rewrite hash table
 
 wish list:
 	- benchmark and optimize all structures
