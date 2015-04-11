@@ -1,0 +1,11 @@
+#!/bin/sh
+
+while [ $# -gt 0 ]
+do
+    ./$1 >/dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+	echo "test $1 failed"
+    fi	
+    shift
+done

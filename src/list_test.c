@@ -343,7 +343,7 @@ void test_list_splice_middle()
 	INIT_TEST_DATA(middle_of_control, middle_of_tlist, data_length/3);
 	INIT_TEST_DATA(rest_of_control, rest_of_tlist, data_length - data_length/3);
 
-	size_t splice_size = data_length/4;
+	size_t splice_size = data_length/3;
 	for (size_t i = 0; i < data_length; i++) {
 		struct point_t *insertee = copy_point(&control[i]);
 		struct point_t *insertee_copy = copy_point(&control[i]);
