@@ -4,7 +4,7 @@ INCLUDE = ../include
 RNG = ./pcg-c-master
 CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
 TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test \
-	  chunky_str_test binary_heap_test
+	  chunky_str_test binary_heap_test cuckoo_htable_test
 
 vpath %.h $(INCLUDE)
 vpath %.h $(RNG)/include
@@ -28,6 +28,9 @@ avl_test: avl_test.o avl_tree.o test.o
 
 htable_test: htable_test.o htable.o test.o fasthash.o murmurhash.o
 	$(CC) $(CFLAGS) -lm -o $@ $^
+
+cuckoo_htable_test: cuckoo_htable_test.o cuckoo_htable.o test.o fasthash.o
+	$(CC) $(CFLAGS) -lm -o $@ $^ $(RNG)/src/libpcg_random.a
 
 bloom_test: bloom_test.o bloom.o test.o fasthash.o
 	$(CC) $(CFLAGS) -lm -o $@ $^ $(RNG)/src/libpcg_random.a
@@ -65,6 +68,9 @@ test.o: test.c test.h
 htable_test.o: htable_test.c htable.h
 	$(CC) $(CFLAGS) -c $<
 
+cuckoo_htable_test.o: cuckoo_htable_test.c cuckoo_htable.h
+	$(CC) $(CFLAGS) -c $<
+
 htable.o: htable.c htable.h fasthash.h murmurhash.h
 	$(CC) $(CFLAGS) -c $<
 
@@ -99,4 +105,7 @@ binary_heap.o: binary_heap.c binary_heap.h
 	$(CC) $(CFLAGS) -c $<
 
 binary_heap_test.o: binary_heap_test.c binary_heap.h
+	$(CC) $(CFLAGS) -c $<
+
+cuckoo_htable.o: cuckoo_htable.c cuckoo_htable.h
 	$(CC) $(CFLAGS) -c $<
