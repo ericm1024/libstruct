@@ -14,6 +14,7 @@ issues:
 
 in progress:
 	btree
+	hash table
 
 future structures:
 	skip list
@@ -22,6 +23,8 @@ future structures:
 	trie (strings)
 	radix tree (integers)
 	union-join
+	stack
+	deque
 
 housekeeping/etc:
 	- clean up make files, put variables in top level make file, use
