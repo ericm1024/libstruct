@@ -36,7 +36,7 @@
  *       about you, but I don't have that much memory.
  */
 
-#define n 100000000
+#define n 1000000
 struct value { int x; int y; };	
 
 /* 
