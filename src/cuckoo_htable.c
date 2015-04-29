@@ -134,6 +134,9 @@ struct cuckoo_bucket {
 	} vals;
 };
 
+/* ====== setters/getters for fields within each bucket ====== */
+
+/* set a value at index i in a bucket */
 static inline void set_val(struct cuckoo_bucket *restrict bkt,
 			   const void *restrict val,
 			   unsigned long i)
@@ -142,52 +145,67 @@ static inline void set_val(struct cuckoo_bucket *restrict bkt,
 	bkt->vals.tags[i] |= TAG_OCCUPIED;
 }
 
-/* remove a value from a bucket by clearing the tag bit */
-static inline const void *remove_val(struct cuckoo_bucket *bkt,
-				     unsigned long i)
-{
-	const void *val = bkt->vals.ptrs[i];
-	bkt->vals.tags[i] = 0;
-	return val;
-}
-
-/* retrieve a value (pointer) from the bucket */
+/* retrieve a value at index i from a bucket */
 static inline const void *get_val(const struct cuckoo_bucket *bkt,
 				  unsigned long i)
 {
 	return (void*)(bkt->vals.tags[i] & ~TAG_WIDTH);
 }
 
+/* remove a value at index i from a bucket */
+static inline const void *remove_val(struct cuckoo_bucket *bkt,
+				     unsigned long i)
+{
+	const void *val = get_val(bkt, i);
+	bkt->vals.tags[i] = 0;
+	return val;
+}
+
+/* get a key at index i from a bucket */
 static inline uint64_t get_key(const struct cuckoo_bucket *bkt,
 			       unsigned long i)
 {
 	return bkt->keys[i];
 }
 
+/* set a key at index i in a bucket */
 static inline void set_key(struct cuckoo_bucket *bkt, uint64_t key,
 			   unsigned long i)
 {
 	bkt->keys[i] = key;
 }
 
+/* check if the ith slot in a bucket has a given tag */
 static inline bool slot_has_tag(const struct cuckoo_bucket *bkt,
 				unsigned long i, uintptr_t tag)
 {
 	return bkt->vals.tags[i] & tag;
 }
 
+/* set a tag at index i in a bucket */
 static inline void set_tag(struct cuckoo_bucket *bkt, unsigned long i,
 			   uintptr_t tag)
 {
 	bkt->vals.tags[i] |= tag;
 }
 
-static inline void clear_tag(struct cuckoo_bucket *bkt, unsigned long i,
-			     uintptr_t tag)
-{
-	bkt->vals.tags[i] &= ~tag;
-}
+/* ===== helper functions that operate on individual buckets ===== */
 
+/*
+ * \brief insert a key-value pair into a bucket.
+ * 
+ * \param bkt         Bucket to insert into.
+ * \param caller_key  Pointer to key in caller's stack frame.
+ * \param caller_val  Pointer to value in caller's stack frame.
+ *
+ * \detail Looks through a bucket for an empty slot and inserts the given
+ * key-value pair in that empty slot (slot gets marked with TAG_OCCUPIED).
+ * If an empty slot can not be found, the k-v pair in the last slot of the
+ * bucket is evicted & written to caller_key and caller_val.
+ * 
+ * \return True if the insertion succeeded without having to kick anything
+ * out, false if the last value had to be kicked out.
+ */
 static bool bucket_insert(struct cuckoo_bucket *restrict bkt,
 			  uint64_t *restrict caller_key,
 			  const void **restrict caller_val)
@@ -204,7 +222,7 @@ static bool bucket_insert(struct cuckoo_bucket *restrict bkt,
 
 	/* bucket was full, kick out the last kv-pair */
 	if (i == BUCKET_SIZE) {
-		i--;
+		i = pcg64_random() % BUCKET_SIZE;
 		*caller_key = get_key(bkt, i);
 		*caller_val = get_val(bkt, i);
 		did_evict = true;
@@ -217,14 +235,34 @@ static bool bucket_insert(struct cuckoo_bucket *restrict bkt,
 	return !did_evict;
 }
 
-static bool bucket_insert_rehash(struct cuckoo_bucket *restrict bkt,
-				 uint64_t *restrict caller_key,
-				 const void **restrict caller_val)
+
+#define REHASH_EVICTED_INVALID (0L)
+#define REHASH_EVICTED_VALID (1L)
+#define REHASH_FOUND_SLOT (2L)
+
+/*
+ * \brief bucket insertion procedure for use during rehashing.
+ *
+ * \param bkt         Bucket to insert into.
+ * \param caller_key  Pointer to key in caller's stack frame.
+ * \param caller_val  Pointer to value in caller's stack frame.
+ *
+ * \detail Looks through a bucket first for an empty slot. If no empty
+ * slot can be found, the first invalid slot is used. In that case the
+ * k-v pair that was there previously is kicked out
+ *
+ * \return REHASH_FOUND_SLOT if nothing had to be evicted,
+ * REHASH_EVICTED_INVALID if the evicted k-v pair was invalid, or
+ * REHASH_EVICTED_VALID if the evicted k-v pair was valid.
+ */ 
+static int bucket_insert_rehash(struct cuckoo_bucket *restrict bkt,
+				uint64_t *restrict caller_key,
+				const void **restrict caller_val)
 {
 	unsigned long i;
 	uint64_t key = *caller_key;
 	const void *val = *caller_val;
-	bool did_evict = false;
+	long ret = REHASH_FOUND_SLOT;
 
 	/* try to find an empty slot */
 	for (i = 0; i < BUCKET_SIZE; i++)
@@ -239,35 +277,41 @@ static bool bucket_insert_rehash(struct cuckoo_bucket *restrict bkt,
 
 	/* we got to the end */
 	if (i == BUCKET_SIZE)
-		i--;
+		i = pcg64_random() % BUCKET_SIZE;
 	
 	/* if the slot in question has something in it, kick it out */
 	if (slot_has_tag(bkt, i, TAG_OCCUPIED)) {
+		ret = slot_has_tag(bkt, i, TAG_INVALID) ?
+			REHASH_EVICTED_INVALID : REHASH_EVICTED_VALID;
+
 		*caller_key = get_key(bkt, i);
 		*caller_val = get_val(bkt, i);
-		did_evict = true;
 	}
 
 	/* insert new kv-pair */
 	set_val(bkt, val, i);
 	set_key(bkt, key, i);
 
-	return !did_evict;	
+	return ret;
 }
 
+/* search through a bucket for a key */
 static inline bool bucket_contains(const struct cuckoo_bucket *bkt,
 				   uint64_t key)
 {
 	/* walk through the bucket and look for the key */
 	for (unsigned long i = 0; i < BUCKET_SIZE; i++) {
-		if (!slot_has_tag(bkt, i, TAG_OCCUPIED))
-			break;
-		else if (get_key(bkt, i) == key)
+		if (slot_has_tag(bkt, i, TAG_OCCUPIED)
+		    && get_key(bkt, i) == key)
 			return true;
 	}
 	return false;	
 }
 
+/*
+ * look through a bucket for a key and remove the corresponding value.
+ * returns false if the key was not found
+ */
 static bool try_bucket_remove(struct cuckoo_bucket *bkt, uint64_t key)
 {
 	unsigned long i;
@@ -277,30 +321,27 @@ static bool try_bucket_remove(struct cuckoo_bucket *bkt, uint64_t key)
 	 * so bail.
 	 */
 	for (i = 0; i < BUCKET_SIZE; i++) {
-		if (!slot_has_tag(bkt, i, TAG_OCCUPIED))
-			return false;
-		else if (get_key(bkt, i) == key) {
+		if (slot_has_tag(bkt, i, TAG_OCCUPIED)
+		    && get_key(bkt, i) == key) {
 			remove_val(bkt, i);
 			break;
 		}
 	}
-	
-	/* move all the other kv-pairs back one slot */
-	for (; i < BUCKET_SIZE - 1; i++) {
-		set_val(bkt, remove_val(bkt, i+1), i);
-		set_key(bkt, get_key(bkt, i+1), i);
-	}
-	
-	return true;
+
+	/* if we didn't get to the end, we removed something */
+	return i != BUCKET_SIZE;
 }
 
+/*
+ * look for a key and get the corresponding value if the key is found.
+ * returns false if the key was not found
+ */
 static bool try_bucket_get(const struct cuckoo_bucket *restrict bkt,
 			   uint64_t key, const void **restrict val)
 {
 	for (unsigned long i = 0; i < BUCKET_SIZE; i++) {
-		if (!slot_has_tag(bkt, i, TAG_OCCUPIED))
-			break;
-		else if (get_key(bkt, i) == key) {
+		if (slot_has_tag(bkt, i, TAG_OCCUPIED)
+		    && get_key(bkt, i) == key ) {
 			*val = get_val(bkt, i);
 			return true;
 		}
@@ -382,11 +423,16 @@ void cuckoo_htable_destroy(struct cuckoo_head *head)
 
 #define MAX_INSERT_TRYS_MULTIPLIER (4UL)
 
+/*
+ * max number of trys to insert given the number of entries in a table.
+ * TODO: this is wrong-ish but close enough for now.
+ */
 static inline unsigned long max_insert_trys(unsigned long entries)
 {
 	return MAX_INSERT_TRYS_MULTIPLIER*(log(entries) + 1);
 }
 
+/* returns true if a table needs to be resized */
 static inline bool needs_resize(const struct cuckoo_head *head)
 {
 	/* this value imples half of the buckets are full */
@@ -401,21 +447,17 @@ static inline bool needs_resize(const struct cuckoo_head *head)
  * inline version with callback. We use this to make do_insert and
  * do_insert_rehash
  */ 
-static inline bool __do_insert(struct cuckoo_table *restrict table,
+static inline bool do_insert(struct cuckoo_table *restrict table,
 			       uint64_t *restrict key,
 			       void const **restrict val,
-			       unsigned long max_trys,
-			       bool (*bkt_insert)(
-				       struct cuckoo_bucket *restrict,
-				       uint64_t *restrict,
-				       const void **restrict))
+			       unsigned long max_trys)
 {
 	/*
 	 * idea: keep looping until bucket_insert succeedes. Each time its
 	 * called, the key and value arguments get reassigned with a
 	 * new key/value, which we then try to insert on the next itteration.
 	 * 
-	 * This is the "cuckoo" part of cuckoo hashing -- kicking out old
+	 * this is the "cuckoo" part of cuckoo hashing -- kicking out old
 	 * values when we find fully occupied buckets.
 	 */
 	for (unsigned long i = 0, which_array = 0;
@@ -426,17 +468,10 @@ static inline bool __do_insert(struct cuckoo_table *restrict table,
 		hash %= table->capacity;
 		
 		struct cuckoo_bucket *b = &table->tables[which_array][hash];
-		if (bkt_insert(b, key, val))
+		if (bucket_insert(b, key, val))
 			return true;
 	}
 	return false;
-}
-
-static bool do_insert(struct cuckoo_table *restrict table,
-		      uint64_t *restrict key, void const **restrict val,
-		      unsigned long max_trys)
-{
-	return __do_insert(table, key, val, max_trys, bucket_insert);
 }
 
 static bool do_insert_rehash(struct cuckoo_table *restrict table,
@@ -444,7 +479,34 @@ static bool do_insert_rehash(struct cuckoo_table *restrict table,
 			     void const **restrict val,
 			     unsigned long max_trys)
 {
-	return __do_insert(table, key, val, max_trys, bucket_insert_rehash);
+	/*
+	 * The idea of this loop is basically the same as do_insert, with
+	 * one change. When we are rehashing, if we kick out a value that
+	 * is in the wrong place, (denoted by REHASH_EVICTED_INVALID) we
+	 * don't want to count it against max trys. In fact, we want to
+	 * essentially start the insertion procedure over because we're
+	 * inserting a new value from scratch that was in the wrong place.
+	 */
+	for (unsigned long i = 0, which_array = 0;
+	     i < max_trys; which_array++) {
+		which_array %= CUCKOO_HTABLE_NTABLES;
+		
+		uint64_t hash = cuckoo_hash(*key, table->seeds[which_array]);
+		hash %= table->capacity;
+		
+		struct cuckoo_bucket *b = &table->tables[which_array][hash];
+		long ret = bucket_insert_rehash(b, key, val);
+
+		if (ret == REHASH_FOUND_SLOT)
+			return true;
+		else if (ret == REHASH_EVICTED_VALID)
+			i++;
+		else if (ret == REHASH_EVICTED_INVALID)
+			i = 0;
+		else
+			assert(false); /* bug -- bad ret */
+	}
+	return false;
 }
 
 /*
@@ -455,9 +517,7 @@ static bool do_insert_rehash(struct cuckoo_table *restrict table,
  * \return true on success, false otherwise.
  */ 
 static bool do_resize(struct cuckoo_head *head, unsigned long new_size)
-{
-	printf("resizing\n");
-	
+{	
 	unsigned long trys = max_insert_trys(head->nentries);
 	struct cuckoo_table new_table;
 
@@ -494,27 +554,6 @@ failed_insert:
 	return false;
 }
 
-static unsigned long count_entries(struct cuckoo_table *table)
-{
-	unsigned long count = 0;
-	for_each_bucket(table, b) {
-		for (unsigned long i = 0; i < BUCKET_SIZE; i++)
-			if (slot_has_tag(b, i, TAG_OCCUPIED))
-				count++;
-	}
-	return count;
-}
-
-static void print_entries(struct cuckoo_table *table)
-{
-	for_each_bucket(table, b) {
-		for (unsigned long i = 0; i < BUCKET_SIZE; i++)
-			if (slot_has_tag(b, i, TAG_OCCUPIED))
-				printf("%lu\n", get_key(b, i));
-	}
-	printf("\n");
-}
-
 /*
  * \brief reseed the keys of a table and rehash all the elements
  * 
@@ -526,17 +565,15 @@ static void print_entries(struct cuckoo_table *table)
  * that corresponds to its hash. Then every key in an invalid slot is
  * evicted, rehashed, and reinserted.
  */ 
-static void do_rehash(struct cuckoo_table *table, unsigned long trys)
+static unsigned long do_rehash(struct cuckoo_table *table,
+			       unsigned long trys)
 {
-	printf("rehashing\n");
 	const void *val;
 	uint64_t key;
 	bool has_orphan = false;
+	unsigned long retrys = 0;
 
-again:
-	printf("entries is %lu\n", count_entries(table));
-	//print_entries(table);
-	
+again:	
 	/* reseed the hash functions */
 	for (unsigned long i = 0; i < CUCKOO_HTABLE_NTABLES; i++)
 		table->seeds[i] = pcg64_random();
@@ -550,7 +587,7 @@ again:
 			if (slot_has_tag(b, i, TAG_OCCUPIED))
 				set_tag(b, i, TAG_INVALID);
 	}
-
+	
 	/* reinsert an outstanding k-v pair if we have one */
 	if (has_orphan) {
 		/* this should never fail */
@@ -570,16 +607,13 @@ again:
 			if (!do_insert_rehash(table, &key,
 					      &val, trys)) {
 				has_orphan = true;
-				printf("again\n");
+				retrys++;
 				goto again;
 			}
 		}
 	}
 
-	for_each_bucket(table, b) {
-		for (unsigned long i = 0; i < BUCKET_SIZE; i++)
-			clear_tag(b, i, TAG_INVALID);
-	}
+	return retrys;
 }
 
 /*
@@ -592,11 +626,6 @@ again:
 bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
 			  void const *val)
 {
-	unsigned long count = count_entries(&head->table);
-	if (count != head->nentries)
-		printf("expected nentreies == %lu, got %lu\n",
-		       head->nentries, count);
-	
 	uint64_t key_anchor = key;
 	const void *val_anchor = val;
 	bool ret = true;

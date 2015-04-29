@@ -54,8 +54,13 @@
 /* hash table types */
 struct cuckoo_bucket;
 
+/* note -- you should not declare one of these yourself */
 struct cuckoo_table {
-	/* nr of buckets in each table */
+	/*
+	 * nr of buckets in each table -- NOT the actual capacity of this
+	 * entire struct or a single array. That is given by the capacity
+	 * field of a struct cuckoo_head
+	 */
 	unsigned long capacity;
 	
 	/* buckets where key-value pairs are stored */ 
@@ -77,6 +82,7 @@ struct cuckoo_head {
 	/* maximum number of key-value pairs that we can store */
 	unsigned long capacity;
 
+	/* the actual table */
 	struct cuckoo_table table;
 };
 
