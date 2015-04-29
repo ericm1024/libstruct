@@ -255,9 +255,9 @@ static bool bucket_insert(struct cuckoo_bucket *restrict bkt,
  * REHASH_EVICTED_INVALID if the evicted k-v pair was invalid, or
  * REHASH_EVICTED_VALID if the evicted k-v pair was valid.
  */ 
-static int bucket_insert_rehash(struct cuckoo_bucket *restrict bkt,
-				uint64_t *restrict caller_key,
-				const void **restrict caller_val)
+static long bucket_insert_rehash(struct cuckoo_bucket *restrict bkt,
+				 uint64_t *restrict caller_key,
+				 const void **restrict caller_val)
 {
 	unsigned long i;
 	uint64_t key = *caller_key;
