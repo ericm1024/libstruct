@@ -4,7 +4,6 @@ tests:
 	testee.
 
 bugs:
-	- hash table is bassicly broken
 	- rbtree postorder itteration is failing.
 
 issues:
