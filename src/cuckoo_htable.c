@@ -640,9 +640,11 @@ bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
 	if (do_insert(&head->table, &key_anchor, &val_anchor, trys))
 		return ret;
 
-	/* if we need to resize, do that */
 	if (needs_resize(head)) {
-		if (!do_resize(head, head->table.capacity*2)) {
+		/* try resizing */
+		if (do_resize(head, head->table.capacity*2)) {
+			head->stat_resizes++;
+		} else {
 			/*
 			 * this is nasty - if we failed resizing, we need
 			 * to evict the key we originally inserted and
@@ -650,7 +652,6 @@ bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
 			 * remains in a consistent state
 			 */
 			ret = false;
-			head->nentries--;
 
 			/*
 			 * extremely unlikely case where the last evicted key
@@ -660,16 +661,32 @@ bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
 				return ret;
 
 			cuckoo_htable_remove(head, key);
-		}
-		
+		}	
+
+		/*
+		 * try inserting the 'orphan' k-v pair -- if this fails, we
+		 * fall through to a rehash
+		 */
 		if (do_insert(&head->table, &key_anchor, &val_anchor, trys))
 			return ret;
 	}
 	
 	/* otherwise we need to rehash */
-	do {
-		do_rehash(&head->table, trys);
-	} while (!do_insert(&head->table, &key_anchor, &val_anchor, trys));
+	head->stat_rehashes++;
+	unsigned long fails = 0;
+	for (;;) {
+		fails += do_rehash(&head->table, trys);
+
+		if (do_insert(&head->table, &key_anchor, &val_anchor, trys))
+			break;
+		else
+			fails++;
+	}
+
+	/* fix up stats */
+	head->stat_rehash_fails += fails;
+	if (fails > head->stat_rehash_fails_max)
+		head->stat_rehash_fails_max = fails;
 	
 	return ret;
 }
