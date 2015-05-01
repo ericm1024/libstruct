@@ -61,7 +61,7 @@
 /* hash function wrapper */
 static inline uint64_t cuckoo_hash(uint64_t key, uint64_t seed)
 {
-	return fasthash64(&key, sizeof key, seed);
+	return fasthash64_key(key, seed);
 }
 
 /*
@@ -222,7 +222,7 @@ static bool bucket_insert(struct cuckoo_bucket *restrict bkt,
 
 	/* bucket was full, kick out the last kv-pair */
 	if (i == BUCKET_SIZE) {
-		i = pcg64_random() % BUCKET_SIZE;
+		i = pcg32_random() % BUCKET_SIZE;
 		*caller_key = get_key(bkt, i);
 		*caller_val = get_val(bkt, i);
 		did_evict = true;
@@ -277,7 +277,7 @@ static long bucket_insert_rehash(struct cuckoo_bucket *restrict bkt,
 
 	/* we got to the end */
 	if (i == BUCKET_SIZE)
-		i = pcg64_random() % BUCKET_SIZE;
+		i = pcg32_random() % BUCKET_SIZE;
 	
 	/* if the slot in question has something in it, kick it out */
 	if (slot_has_tag(bkt, i, TAG_OCCUPIED)) {
@@ -693,10 +693,10 @@ bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
 			
 bool cuckoo_htable_exists(struct cuckoo_head const *head, uint64_t key)
 {
-	for_each_nest(&head->table, b, key) {
-		if (bucket_contains(b, key))
+	for_each_nest(&head->table, b, key)
+		if(bucket_contains(b, key))
 			return true;
-	}
+	
 	return false;
 }
 

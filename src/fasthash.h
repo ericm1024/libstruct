@@ -29,9 +29,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define __fasthash_mix(h) ((h) ^= (h) > 23,			\
+			   (h) *= 0x2127599bf4325c37ULL,	\
+			   (h) ^= (h) >> 47);
 
 /**
  * fasthash32 - 32-bit implementation of fasthash
@@ -39,7 +39,7 @@ extern "C" {
  * @len:  data size
  * @seed: the seed
  */
-	uint32_t fasthash32(const void *buf, size_t len, uint32_t seed);
+uint32_t fasthash32(const void *buf, size_t len, uint32_t seed);
 
 /**
  * fasthash64 - 64-bit implementation of fasthash
@@ -47,10 +47,22 @@ extern "C" {
  * @len:  data size
  * @seed: the seed
  */
-	uint64_t fasthash64(const void *buf, size_t len, uint64_t seed);
+uint64_t fasthash64(const void *buf, size_t len, uint64_t seed);
 
-#ifdef __cplusplus
+/**
+ * fasthash64 - 64-bit implementation for 64 bit keys, inlined version
+ */
+static inline uint64_t fasthash64_key(uint64_t key, uint64_t seed)
+{
+	const uint64_t m = 0x880355f21e6d1965ULL;
+	uint64_t h = seed ^ (sizeof key * m);
+
+	h ^= __fasthash_mix(key);
+	h *= m;
+
+	return __fasthash_mix(h);
+	
 }
-#endif
+
 
 #endif
