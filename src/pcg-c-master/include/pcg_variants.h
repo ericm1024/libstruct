@@ -40,7 +40,7 @@
 
 #include <inttypes.h>
 
-/*                                                                                                                                                           
+/*   
  * nasty hack to get this to compile with GCC ... gcc supports 128 bit
  * math on most (all?) arches that are native 64 bit, but it doesn't define
  * __SIZEOF_INT128__, so we define it ourselves based on some reasonably
