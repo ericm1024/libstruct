@@ -39,6 +39,7 @@
 #include "chunky_str.h"
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 /* in case we want to reuse this implementation for other types */
 typedef char char_t;
@@ -149,7 +150,7 @@ static void shift_chars(struct cs_chunk *chunk, unsigned long start, long shift)
 	char *chars = chunk->chars;
 	unsigned long end = chunk->end;
 
-	assert(shift == SHIFT_FORWARD && end < NCHARS 
+	assert((shift == SHIFT_FORWARD && end < NCHARS)
 	       || shift == SHIFT_REVERSE);
 
 	if (shift == SHIFT_FORWARD)
@@ -176,7 +177,7 @@ cs_cursor_t cs_cursor_get(struct chunky_str *cs)
 	struct cs_cursor init = {.owner = cs, .chunk = 0, .index = 0};
 	struct cs_cursor* cursor = malloc(sizeof(struct cs_cursor));
 	if (cursor) {
-		*cursor = init;
+		memcpy(cursor, &init, sizeof init);
 		cs_cursor_begin(cursor);
 	}
 	return cursor;
@@ -191,7 +192,7 @@ cs_cursor_t cs_cursor_clone(cs_cursor_t jango)
 	 */
 	struct cs_cursor* boba = malloc(sizeof(struct cs_cursor));
 	if (boba)
-		*boba = *jango;
+		memcpy(boba, jango, sizeof *jango);
 	return boba;
 }
 
@@ -384,7 +385,14 @@ void cs_destroy(struct chunky_str *cs)
 bool cs_clone(struct chunky_str *cs, struct chunky_str *clone)
 {
 	struct cs_chunk *chunk;
-	*clone = CHUNKY_STRING_DEFAULT;
+
+	/*
+	 * *sign* this is gross, but the offset field of the list head in
+	 * struct chunky_string is const, so we can't just assign the
+	 * pointer. Also fun fact: clang doen't catch this error. :/
+	 */ 
+	struct chunky_str init = CHUNKY_STRING_DEFAULT;
+	memcpy(clone, &init, sizeof init); 
 	
 	list_for_each(&cs->str, struct cs_chunk, node) {
 		chunk = malloc(sizeof (struct cs_chunk));
