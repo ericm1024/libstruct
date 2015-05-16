@@ -1,4 +1,4 @@
-CC = clang
+CC = gcc
 OPTFLAGS = -O0
 INCLUDE = ../include
 RNG = ./pcg-c-master
