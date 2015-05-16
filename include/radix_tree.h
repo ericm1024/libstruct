@@ -52,7 +52,7 @@ typedef struct radix_cursor {
 	 * offset into the tree that this node is currently at -- NOT
 	 * the index into the node itself
 	 */
-	unsigned long index;
+	unsigned int index;
 } radix_cursor_t;
 
 /**
@@ -66,16 +66,13 @@ typedef struct radix_cursor {
 		.nentries = 0};
 
 /**
- * \brief Define (don't declare) a radix tree cursor.
- * \param tree    (struct radix_head*) pointer to the tree this cursor should
- * reference.
- *
- * \detail This is a definition macro and not a declaration macro so that a
- * cursor can be reinitialized to reference a different tree.
+ * \brief Declare and define a radix tree cursor.
+ * \note You still need to call radix_cursor_begin or radix_cursor_end before
+ * you can actually use the cursor.
  */
-#define DEFINE_RADIX_CURSOR(tree) {				\
-		.owner = (tree),				\
-		.node = NULL,					\
+#define RADIX_CURSOR {				\
+		.owner = NULL,			\
+		.node = NULL,			\
                 .index = 0};
 
 /**
@@ -84,7 +81,10 @@ typedef struct radix_cursor {
  *
  * \param head   The head of the tree to destroy.
  */
-extern void radix_destroy(struct radix_head *head);
+extern void radix_destroy(struct radix_head *restrict head,
+			  void (*restrict dtor)(const void *node,
+						void *private),
+			  void *restrict private);
 
 /**
  * \brief insert a new value at an index
@@ -166,6 +166,18 @@ extern bool radix_cursor_next(radix_cursor_t *cursor);
  * \return true if the cursor was moved, false if there is no next valid slot.
  */
 extern bool radix_cursor_next_valid(radix_cursor_t *cursor);
+
+/**
+ * \brief Move a cursor to the next slot in the tree, allocating a node if
+ * need be.
+ *
+ * \param cursor   The cursot to move.
+ *
+ * \return true if the cursor was moved, false if the allocation failed or
+ * if the cursor is already at the last slot in the tree.
+ *
+ */
+extern bool radix_cursor_next_alloc(radix_cursot_t *cursor);
 
 /**
  * \brief Move a cursor to the previous slot in the tree.

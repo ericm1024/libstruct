@@ -28,4 +28,12 @@
 
 #define SIGN_BIT(x) ((x) >> (sizeof(x) * CHAR_BIT - 1) & 1)
 
+static inline unsigned long ullog2(unsigned long x)
+{
+	unsigned long shift = 0;
+	while (x > (1UL << shift++))
+		;
+	return shift - 1;
+}
+
 #endif /* INCLUDE_BITOPS_H */
