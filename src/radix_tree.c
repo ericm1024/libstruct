@@ -49,6 +49,8 @@
 /* tag to mark a node a a leaf. Stored in the node's parent pointer */
 #define RADIX_TAG_LEAF ((uintptr_t)0x1)
 
+#define RADIX_UNTAG_LEAF (~RADIX_TAG_LEAF)
+
 /*
  * number of bits at the end of a key that we don't use. Currently
  * set to the size of a page.
@@ -176,9 +178,19 @@ static inline bool prefix_is_leaf(unsigned int pref_len)
 	return RADIX_KEY_SIZE - prefix_len <= RADIX_TREE_SHIFT;
 }
 
-static inline struct radix_node *get_parent(const struct radix_node *n)
+static inline struct radix_node *get_parent(const struct radix_node *node)
 {
-	return n->parent.node & ~1;
+	return (struct radix_node *)(node->parent.tag & RADIX_UNTAG_LEAF);
+}
+
+static inline void set_parent(struct radix_node *node,
+			      const struct radix_node *parent)
+{
+	/* gross */
+	uintptr_t old_tag = node->parent.tag & RADIX_TAG_LEAF;
+	uintptr_t parent_tagged = (uintptr_t)parent;
+	parrent_tagged |= old_tag;
+	node->parent.tag = parent_tagged;
 }
 
 /**
@@ -211,7 +223,7 @@ static radix_node *alloc_node(struct radix_head *head,
 
 	node->prefix = prefix;
 	node->prefx_len = pref_len;
-	node->parent.node = parent;
+	set_parent(node, parent);
 	node->entries = 0;
 
 	/* physically put the node in the tree */
@@ -280,7 +292,7 @@ static struct radix_node *split_node_key(struct radix_head *restrict head,
 	       radix_get_index(path, key));
 
 	/* fix up the rest of the tree */
-	child->parent = path;
+	set_parent(child, path);
 	child->parent_index = radix_get_index(path, child->prefix);
 	path->children[child->parent_index] = child;
 	path->entries++;
@@ -338,8 +350,8 @@ radix_tree_walk(struct radix_head *restrict head, long key,
 	 * in doesn't contain the key we're searching for, walk up till
 	 * we find one
 	 */
-	while (path->parent && !node_contains_key(path, key))
-		path = path->parent;
+	while (get_parent(path) && !node_contains_key(path, key))
+		path = get_parent(path);
 
 	/* walk back down */
 	while (!node_is_leaf(path)) {
@@ -381,7 +393,7 @@ radix_tree_walk(struct radix_head *restrict head, long key,
  * \brief Similar to radix_tree_walk, except instead of hunting for the node
  * containing a given key, this function just hunts for the next open slot
  * in a given direction (either left or right, which is what the lr is short
- * for.
+ * for.)
  *
  * \param start   The node to start at.
  * \param index   The index within the starting node to start at.
@@ -390,18 +402,20 @@ radix_tree_walk(struct radix_head *restrict head, long key,
  * \return 
  */
 static inline struct radix_node *
-radix_tree_walk_lr(struct radix_node *restrict start,
-		   unsigned int index, bool left)
+radix_tree_walk_lr(struct radix_node *start, unsigned int index, bool left)
 {
 	assert(index < RADIX_TREE_CHILDREN);
 	
 	if (!start)
 		return NULL;
 
-	do {
-		for (; index < RADIX_TREE_CHILDREN; index++) {
+	unsigned int step = left ? -1 : 1;
+	unsigned int end = left ? 
 
-		}
+	do {
+		
+		
+		index = start->parent_index;
 	} while ((start = get_parent(start)));
 }
 
