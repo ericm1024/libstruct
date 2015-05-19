@@ -24,7 +24,7 @@
 #ifndef INCLUDE_BITOPS_H
 #define INCLUDE_BITOPS_H 1
 
-#include <limits.h> /* CHAR_BIT */
+#include <limits.h>
 
 #define SIGN_BIT(x) ((x) >> (sizeof(x) * CHAR_BIT - 1) & 1)
 
@@ -34,6 +34,16 @@ static inline unsigned long ullog2(unsigned long x)
 	while (x > (1UL << shift++))
 		;
 	return shift - 1;
+}
+
+static inline bool uladd_ok(unsigned long a, unsigned long b)
+{
+	return ULONG_MAX - a >= b;
+}
+
+static inline bool ulsub_ok(unsigned long a, unsigned long b)
+{
+	return a >= b;
 }
 
 #endif /* INCLUDE_BITOPS_H */
