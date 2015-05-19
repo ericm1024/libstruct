@@ -43,7 +43,7 @@ static inline bool seed_rng()
 	pcg128_t seeds[2];
 
 	if (fd < 0) {
-		fprintf(stderr, "coult not open file %s, error: %s",
+		fprintf(stderr, "coult not open file %s, error: %s\n",
 			__RANDOM_SRC, strerror(errno));
 		return fallback_seed_rng();
 	}
