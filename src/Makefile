@@ -4,7 +4,7 @@ INCLUDE = ../include
 RNG = ./pcg-c-master
 CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
 TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test \
-	  chunky_str_test binary_heap_test cuckoo_htable_test
+	  chunky_str_test binary_heap_test cuckoo_htable_test radix_tree_test
 
 vpath %.h $(INCLUDE)
 vpath %.h $(RNG)/include
@@ -43,6 +43,9 @@ chunky_str_test: chunky_str_test.o list.o chunky_str.o test.o
 
 binary_heap_test: binary_heap_test.o binary_heap.o test.o
 	$(CC) $(CFLAGS) -lm -o $@ $^
+
+radix_tree_test: radix_tree_test.o radix_tree.o test.o
+	$(CC) $(CFLAGS) -lm -o $@ $^ $(RNG)/src/libpcg_random.a
 
 flist_test.o: flist_test.c flist.h
 	$(CC) $(CFLAGS) -c $<
@@ -108,4 +111,10 @@ binary_heap_test.o: binary_heap_test.c binary_heap.h
 	$(CC) $(CFLAGS) -c $<
 
 cuckoo_htable.o: cuckoo_htable.c cuckoo_htable.h
+	$(CC) $(CFLAGS) -c $<
+
+radix_tree.o: radix_tree.c radix_tree.h
+	$(CC) $(CFLAGS) -c $<
+
+radix_tree_test.o: radix_tree_test.c radix_tree.h
 	$(CC) $(CFLAGS) -c $<

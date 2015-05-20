@@ -31,12 +31,13 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #define BITS_PER_LONG (sizeof(unsigned long)*CHAR_BIT)
 #define LONG_SHIFT (BITS_PER_LONG == 64 ? 6 : 5)
 
 /** number of children per node */
-#define RADIX_TREE_CHILDREN (1UL << RADIX_TREE_SHIFT)
+#define RADIX_TREE_CHILDREN (1 << RADIX_TREE_SHIFT)
 
 /** mask of the lowest RADIX_TREE_SHIFT bits */
 #define RADIX_TREE_MASK (RADIX_TREE_CHILDREN - 1)
@@ -82,7 +83,7 @@ struct radix_node {
 	 * parent node to this node and tag to denote if current node is
 	 * a leaf
 	 */
-	union parent_union {
+	union {
 		struct radix_node *node;
 		uintptr_t tag;
 	} parent;
@@ -91,7 +92,7 @@ struct radix_node {
 	 * array of children -- either nodes or values, depending on
 	 * whether the tag field of parent has RADIX_TAG_LEAF
 	 */
-	union child_union {
+	union {
 		struct radix_node *node;
 		const void *val;
 	} children[RADIX_TREE_CHILDREN];
@@ -137,7 +138,7 @@ struct radix_node {
  */
 static inline unsigned long radix_node_mask(unsigned int pref_len)
 {
-	return ~((U1L << (BITS_PER_LONG - pref_len)) - 1UL);
+	return ~((1UL << (BITS_PER_LONG - pref_len)) - 1UL);
 }	
 
 /**
@@ -180,39 +181,22 @@ static inline unsigned int radix_get_index(const struct radix_node *node,
 	return (index >> (BITS_PER_LONG - pref_len)) & RADIX_TREE_MASK;
 }
 
-/**
- * \brief Construct the key corresponding to an index into a leaf node.
- * 
- * \param node    Leaf node in which the constructed key will fall.
- * \param index   Index into the child array of the given node.
- *
- * \return key that maps to the slot in node indexed by index.
- */
-static inline unsigned long node_index_to_key(const struct radix_node *node,
-					      unsigned long index)
-{
-	assert(node_is_leaf(node));
-	unsigned long key = node->prefix & radix_node_mask(node->prefix_len);
-	key |= index << RADIX_KEY_UNUSED_BITS;
-	return key;
-}
-
 /** mark a node as being a leaf */
 static inline void node_mark_leaf(struct radix_node *node)
 {
-	node->shared.tag |= RADIX_TAG_LEAF;
+	node->parent.tag |= RADIX_TAG_LEAF;
 }
 
 /** predicate for determining if a node is a leaf */
 static inline bool node_is_leaf(const struct radix_node *node)
 {
-	return node->shared.tag & RADIX_TAG_LEAF;
+	return node->parent.tag & RADIX_TAG_LEAF;
 }
 
 /** predicate for determining if a prefix length denotes a leaf */
 static inline bool prefix_is_leaf(unsigned int pref_len)
 {
-	return RADIX_BITS_PER_KEY - prefix_len <= RADIX_TREE_SHIFT;
+	return RADIX_BITS_PER_KEY - pref_len <= RADIX_TREE_SHIFT;
 }
 
 /** get the parent node of a node */
@@ -228,8 +212,25 @@ static inline void set_parent(struct radix_node *node,
 	/* gross */
 	uintptr_t old_tag = node->parent.tag & RADIX_TAG_LEAF;
 	uintptr_t parent_tagged = (uintptr_t)parent;
-	parrent_tagged |= old_tag;
+	parent_tagged |= old_tag;
 	node->parent.tag = parent_tagged;
+}
+
+/**
+ * \brief Construct the key corresponding to an index into a leaf node.
+ * 
+ * \param node    Leaf node in which the constructed key will fall.
+ * \param index   Index into the child array of the given node.
+ *
+ * \return key that maps to the slot in node indexed by index.
+ */
+static inline unsigned long node_index_to_key(const struct radix_node *node,
+					      unsigned long index)
+{
+	assert(node_is_leaf(node));
+	unsigned long key = node->prefix & radix_node_mask(node->pref_len);
+	key |= index << RADIX_KEY_UNUSED_BITS;
+	return key;
 }
 
 /**
@@ -242,10 +243,10 @@ static inline void set_parent(struct radix_node *node,
  *
  * \return the new node, or null if memory allocation failed.
  */
-static radix_node *alloc_node(struct radix_head *head,
-			      struct radix_node *parent,
-			      unsigned long prefix,
-			      unsigned int pref_len)
+static struct radix_node *alloc_node(struct radix_head *head,
+				     struct radix_node *parent,
+				     unsigned long prefix,
+				     unsigned int pref_len)
 {
 	assert(pref_len < RADIX_BITS_PER_KEY - 1);
 	
@@ -261,7 +262,7 @@ static radix_node *alloc_node(struct radix_head *head,
 		node->children[i].node = NULL;
 
 	node->prefix = prefix;
-	node->prefx_len = pref_len;
+	node->pref_len = pref_len;
 	set_parent(node, parent);
 	node->entries = 0;
 
@@ -289,8 +290,11 @@ static inline void insert_into_node(struct radix_head *restrict head,
 	assert(node_is_leaf(node));
 	assert(node_contains_key(node, key));
 	head->nentries++;
-	node->nentries++;
-	node->children[radix_get_index(node, key)].val = value;
+	node->entries++;
+	
+	unsigned long index = radix_get_index(node, key);
+	assert(!node->children[index].val);
+	node->children[index].val = value;
 }
 
 /**
@@ -319,14 +323,14 @@ static struct radix_node *split_node_key(struct radix_head *restrict head,
 	 * note that this may be shortened below
 	 */
 	struct radix_node *path =
-		alloc_node(head, child->shared.parent, child->prefix,
-			   child->prefix_len - RADIX_TREE_SHIFT);
+		alloc_node(head, get_parent(child), child->prefix,
+			   child->pref_len - RADIX_TREE_SHIFT);
 	if (!path)
 		return NULL;
 
 	/* fix up the new path's prefix length */
 	while (!node_contains_key(path, key))
-		path->prefix_len -= RADIX_TREE_SHIFT;
+		path->pref_len -= RADIX_TREE_SHIFT;
 
 	assert(node_contains_key(path, child->prefix));
 	assert(radix_get_index(path, child->prefix) !=
@@ -335,8 +339,10 @@ static struct radix_node *split_node_key(struct radix_head *restrict head,
 	/* fix up the rest of the tree */
 	set_parent(child, path);
 	child->parent_index = radix_get_index(path, child->prefix);
-	path->children[child->parent_index] = child;
+	path->children[child->parent_index].node = child;
 	path->entries++;
+
+	return path;
 }
 
 /** tells radix_tree_walk to behave normally */
@@ -371,8 +377,9 @@ static struct radix_node *split_node_key(struct radix_head *restrict head,
  *
  */ 
 static struct radix_node *
-radix_tree_walk(struct radix_head *restrict head, unsigned long key,
-		struct radix_node *restrict start, int flags)
+radix_tree_walk(struct radix_head *restrict head,
+		struct radix_node *restrict start,
+		unsigned long key, int flags)
 {
 	struct radix_node *path = start ? start : head->root;
 	
@@ -412,7 +419,7 @@ radix_tree_walk(struct radix_head *restrict head, unsigned long key,
 
 	if (node_contains_key(path, key))
 		return path;
-	else if (!should_alloc)
+	else if (!FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
 		return FLAG_HAS_BIT(flags, WALK_FLAG_CLOSEST) ? path : NULL;
 	
 	/*
@@ -469,7 +476,7 @@ radix_tree_walk_lr(struct radix_node *start, int start_index,
 					break;
 			}
 		} else {
-			for (; index < RADIX_TREE_CHILDREN; i++) {
+			for (; index < RADIX_TREE_CHILDREN; index++) {
 				child = node->children[index].node;
 				if (child)
 					break;
@@ -508,11 +515,11 @@ radix_tree_walk_lr(struct radix_node *start, int start_index,
  * and so is stack space.
  */
 static void destroy_node(struct radix_node *restrict node,
-			 void (*restrict dtor)(const void *node, void *private),
+			 void (*dtor)(void *node, void *private),
 			 void *restrict private)
 {
 	bool is_leaf = node_is_leaf(node);
-	for (unsigned long i = 0; i < RADIX_TREE_CHILDREN) {
+	for (unsigned long i = 0; i < RADIX_TREE_CHILDREN; i++) {
 		struct radix_node *child = node->children[i].node;
 		if (child) {
 			if (is_leaf)
@@ -524,10 +531,10 @@ static void destroy_node(struct radix_node *restrict node,
 }
 
 void radix_destroy(struct radix_head *restrict head,
-		   void (*restrict dtor)(const void *node, void *private),
+		   void (*dtor)(void *node, void *private),
 		   void *restrict private)
 {
-	destroy_node(head->root);
+	destroy_node(head->root, dtor, private);
 	head->nnodes = 0;
 	head->nentries = 0;
 	head->root = NULL;
@@ -536,7 +543,7 @@ void radix_destroy(struct radix_head *restrict head,
 bool radix_insert(struct radix_head *head, unsigned long key,
 		  const void *value)
 {
-	assert(val);
+	assert(value);
 
 	struct radix_node *node;
 	node = radix_tree_walk(head, NULL, /* start at root */
@@ -562,8 +569,8 @@ void radix_delete(struct radix_head *restrict head, unsigned long key,
 		return;
 
 	if (out)
-		*out = node->children[index].value;
-	node->children[index].value = NULL;
+		*out = node->children[index].val;
+	node->children[index].val = NULL;
 
 	head->nentries--;
 	node->entries--;
@@ -577,14 +584,14 @@ void radix_delete(struct radix_head *restrict head, unsigned long key,
 
 		if (!parent)
 			break;
-		parent->children[index] = NULL;
+		parent->children[index].node = NULL;
 		parent->entries--;
 		node = parent;
 	}
 }
 
-bool radix_lookup(const struct radix_head *restrict head,
-		  unsigned long key, const void **restrict result)
+bool radix_lookup(struct radix_head *restrict head, unsigned long key,
+		  const void **restrict result)
 {
 	struct radix_node *node;
 	node = radix_tree_walk(head, NULL, /* start at root */
@@ -598,13 +605,14 @@ bool radix_lookup(const struct radix_head *restrict head,
 	if (!val)
 		return false;
 	
-	*result = val;
+	if (result)
+		*result = val;
 	return true;
 	
 }
 
 static inline void
-__radix_cursor_begin_end(const struct radix_head *restrict head,
+__radix_cursor_begin_end(struct radix_head *restrict head,
 			 radix_cursor_t *restrict cursor,
 			 bool begin)		      
 {
@@ -622,13 +630,13 @@ __radix_cursor_begin_end(const struct radix_head *restrict head,
 	cursor->key = node_index_to_key(node, index);
 }
 
-void radix_cursor_begin(const struct radix_head *restrict head,
+void radix_cursor_begin(struct radix_head *restrict head,
 			radix_cursor_t *restrict cursor)
 {
 	__radix_cursor_begin_end(head, cursor, true);
 }
 
-void radix_cursor_end(const struct radix_head *restrict head,
+void radix_cursor_end(struct radix_head *restrict head,
 		      radix_cursor_t *restrict cursor)
 {
 	__radix_cursor_begin_end(head, cursor, false);
@@ -672,6 +680,7 @@ static inline bool __radix_cursor_next_prev_valid(radix_cursor_t *cursor,
 
 	cursor->node = node;
 	cursor->key = node_index_to_key(node, index);
+	return true;
 }
 
 bool radix_cursor_next_valid(radix_cursor_t *cursor)
@@ -729,19 +738,19 @@ unsigned long radix_cursor_seek(radix_cursor_t *cursor, unsigned long seekdst,
 		cursor->key -= actual;
 	}
 	
-	cursor->node = radix_tree_walk(cursor->owner, cursor->key,
-				       cursor->owner, WALK_FLAG_CLOSEST);
+	cursor->node = radix_tree_walk(cursor->owner, cursor->node,
+				       cursor->key, WALK_FLAG_CLOSEST);
 	return actual;
 }
 
-bool radix_cursor_has_entry(radix_cursor_t *cursor)
+bool radix_cursor_has_entry(const radix_cursor_t *cursor)
 {
 	struct radix_node *n = cursor->node;
 	unsigned int i = radix_get_index(n, cursor->key);
 	return node_is_leaf(n) && n->children[i].val;
 }
 
-const void *radix_cursor_read(const radix_cursor_t *cursor)
+const void *radix_cursor_read(radix_cursor_t *cursor)
 {
 	struct radix_node *n = cursor->node;
 	if (!n)
@@ -765,7 +774,7 @@ const void *radix_cursor_read(const radix_cursor_t *cursor)
 	return n->children[i].val;
 }
 
-bool radix_cursor_write(const radix_cursor_t *restrict cursor,
+bool radix_cursor_write(radix_cursor_t *restrict cursor,
 			const void *value, const void **restrict old)
 {
 	struct radix_node *node = cursor->node;
@@ -862,8 +871,10 @@ unsigned long radix_cursor_write_block(const radix_cursor_t *restrict cursor,
 			node_idx = 0;
 		}
 
+		assert(node_is_leaf(node) && node_contains_key(node, key));
+
 		const void *old_val = node->children[node_idx].val;
-		node->children[node_idx] = src[src_idx];
+		node->children[node_idx].val = src[src_idx];
 		if (dst)
 			dst[src_idx] = old_val;
 

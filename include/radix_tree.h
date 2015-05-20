@@ -25,6 +25,8 @@
 #ifndef STRUCT_RADIX_TREE_H
 #define STRUCT_RADIX_TREE_H 1
 
+#include <stdbool.h>
+
 /**
  * minimum number of bits each level of the tree will use (except possibly
  * the lowest level, if this value does not evenly divide BITS_PER_LONG)
@@ -91,12 +93,11 @@ typedef struct radix_cursor {
  * \param head   The head of the tree to destroy.
  */
 extern void radix_destroy(struct radix_head *restrict head,
-			  void (*restrict dtor)(const void *node,
-						void *private),
+			  void (*dtor)(void *node, void *private),
 			  void *restrict private);
 
 /**
- * \brief insert a new value at an index
+ * \brief insert a new value at an index.
  * 
  * \param head    Head of the tree to insert into.
  * \param index   Index to insert at.
@@ -104,6 +105,9 @@ extern void radix_destroy(struct radix_head *restrict head,
  *
  * \return true if the insertion succeeds, false if it fails, which can happen
  * if a new node needs to be allocated and the allocation fails.
+ *
+ * \detail Inserting a key that already exists is undefined behavior (trips an
+ * assertion)
  */
 extern bool radix_insert(struct radix_head *head, unsigned long key,
 			 const void *value);
@@ -126,13 +130,13 @@ extern void radix_delete(struct radix_head *restrict head, unsigned long key,
  *
  * \param head    Head of the tree to lookup from.
  * \param index   The index to lookup.
- * \param result  Where to put the looked up value, if one exists.
+ * \param result  Where to put the looked up value, if one exists. Can be NULL.
  *
  * \return true if the index has a value, false if not. If fales, @result is not
  * overwritten.
  */
-extern bool radix_lookup(const struct radix_head *restrict head,
-			 unsigned long key, const void **restrict result);
+extern bool radix_lookup(struct radix_head *restrict head, unsigned long key,
+			 const void **restrict result);
 
 /**
  * \brief Initialize a cursor to the index of the first item in the tree.
@@ -142,7 +146,7 @@ extern bool radix_lookup(const struct radix_head *restrict head,
  *
  * \detail If the tree is empty, the cursor is not modified.
  */
-extern void radix_cursor_begin(const struct radix_head *restrict head,
+extern void radix_cursor_begin(struct radix_head *restrict head,
 			       radix_cursor_t *restrict cursor);
 
 /**
@@ -153,7 +157,7 @@ extern void radix_cursor_begin(const struct radix_head *restrict head,
  *
  * \detail If the tree is empty, the cursor is not modified.
  */
-extern void radix_cursor_end(const struct radix_head *restrict head,
+extern void radix_cursor_end(struct radix_head *restrict head,
 			     radix_cursor_t *restrict cursor);
 
 /**
@@ -277,7 +281,7 @@ extern bool radix_cursor_has_entry(const radix_cursor_t *cursor);
  * \return The value indexed by a cursor. NULL if the cursor does not
  * index a valid value.
  */
-extern const void *radix_cursor_read(const radix_cursor_t *cursor);
+extern const void *radix_cursor_read(radix_cursor_t *cursor);
 
 /**
  * \brief Write a value at the slot indexed by a cursor.
@@ -291,7 +295,7 @@ extern const void *radix_cursor_read(const radix_cursor_t *cursor);
  * needed to be allocated and it could not be. Note that memory may not always
  * need to be allocated, even if the cursor indexes an empty slot.
  */
-extern bool radix_cursor_write(const radix_cursor_t *restrict cursor,
+extern bool radix_cursor_write(radix_cursor_t *restrict cursor,
 			       const void *value, const void **restrict old);
 
 /**
