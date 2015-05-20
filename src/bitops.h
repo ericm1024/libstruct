@@ -25,6 +25,7 @@
 #define INCLUDE_BITOPS_H 1
 
 #include <limits.h>
+#include <stdbool.h>
 
 #define SIGN_BIT(x) ((x) >> (sizeof(x) * CHAR_BIT - 1) & 1)
 
