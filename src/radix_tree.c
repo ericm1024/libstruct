@@ -102,7 +102,7 @@ struct radix_node {
 	 * up through a certain length from the highest bit. For example,
 	 * if the prefix was 0xFA15_0000_0000_0000 and the prefix length
 	 * was 16, then all elements in the subtree rooted at the node
-	 * have indicies starting with 0xFA15. See RADIX_LEN_TO_MASK.
+	 * have indicies starting with 0xFA15. See node_contains_key.
 	 */
 	unsigned long prefix;
 	unsigned int pref_len:LONG_SHIFT;
@@ -138,7 +138,7 @@ struct radix_node {
  */
 static inline unsigned long radix_node_mask(unsigned int pref_len)
 {
-	return ~((1UL << (BITS_PER_LONG - pref_len)) - 1UL);
+	return ~(~0UL >> pref_len);
 }	
 
 /**
@@ -147,20 +147,30 @@ static inline unsigned long radix_node_mask(unsigned int pref_len)
  *
  * \param pref_len   The length of the prefix to generate a mask for. For
  *                   example, a prefix length of 8 and a RADIX_TREE_SHIFT
- *                   of 6 would prouce the mask 0x00FC_0000_0000_0000 for
+ *                   of 6 would produce the mask 0x00FC_0000_0000_0000 for
  *                   64 bit longs
  */
 static inline unsigned long radix_key_mask(unsigned int pref_len)
 {
 	unsigned long mask = radix_node_mask(pref_len);
-	return mask ^ (mask >> RADIX_TREE_SHIFT);
+        /*
+         * we'd really like to cast to a signed value and take advantage
+         * of the fact that right shifting signed values sign extends,
+         * but that behavior is actually implementation defined so we can't
+         * take avantage of it... section 6.5.7.5, bitwise shift operators,
+         * of the standard version I'm looking at, ISO/IEC 9899:TC3. :(
+         * as a result, we have this nasty double negation that makes no
+         * sense, but works. anyhow fuck computers and their inability to
+         * agree on anything.
+         */
+	return mask ^ ~(~mask >> RADIX_TREE_SHIFT);
 }
 
 /** predicate to determine if a node or its subtree contains a given key */
 static inline bool node_contains_key(const struct radix_node *node,
 				     unsigned long key)
 {
-	return ((radix_node_mask(node->pref_len) & key) ^ node->prefix) == 0;
+	return (radix_node_mask(node->pref_len) & (key ^ node->prefix)) == 0;
 }
 
 /**
@@ -177,8 +187,15 @@ static inline unsigned int radix_get_index(const struct radix_node *node,
 	/* key actually belongs in this node */
 	assert(node_contains_key(node, key));
 	unsigned int pref_len = node->pref_len;
-	unsigned int index = radix_key_mask(pref_len) & key;
-	return (index >> (BITS_PER_LONG - pref_len)) & RADIX_TREE_MASK;
+        unsigned long mask = radix_key_mask(pref_len); 
+        unsigned long index = mask & key;
+        
+        /* TODO: optimize away this branch as __builtin_ffsl(mask) - 1 */
+        unsigned int shift_amt =
+                BITS_PER_LONG > RADIX_TREE_SHIFT + pref_len
+                ? BITS_PER_LONG - (RADIX_TREE_SHIFT + pref_len)
+                : 0;
+        return index >> shift_amt; 
 }
 
 /** mark a node as being a leaf */
@@ -274,9 +291,8 @@ static struct radix_node *alloc_node(struct radix_head *head,
 		parent->children[node->parent_index].node = node;
 		parent->entries++;
 	} else {
-		assert(!head->root);
 		node->parent_index = 0;
-		head->root = parent;
+		head->root = node;
 	}
 
 	return node;
@@ -332,9 +348,8 @@ static struct radix_node *split_node_key(struct radix_head *restrict head,
 	while (!node_contains_key(path, key))
 		path->pref_len -= RADIX_TREE_SHIFT;
 
-	assert(node_contains_key(path, child->prefix));
-	assert(radix_get_index(path, child->prefix) !=
-	       radix_get_index(path, key));
+	assert(radix_get_index(path, child->prefix)
+               != radix_get_index(path, key));
 
 	/* fix up the rest of the tree */
 	set_parent(child, path);
@@ -385,7 +400,7 @@ radix_tree_walk(struct radix_head *restrict head,
 	
 	/* if the tree is empty, allocate something */
 	if (!head->root) {
-		if (FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
+		if (!FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
 			return NULL;
 		
 		path = alloc_node(head, NULL, key, RADIX_LEAF_PREFIX_LEN);
