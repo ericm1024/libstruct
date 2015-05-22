@@ -71,22 +71,10 @@
 #define RADIX_KEY_MAX				\
 	((~0UL - RADIX_KEY_DIFF) + 1)
 
-/** tag to mark a node a a leaf. Stored in the node's parent pointer */
-#define RADIX_TAG_LEAF ((uintptr_t)0x1)
-
-/** mask to remove the leaf tag */
-#define RADIX_UNTAG_LEAF (~RADIX_TAG_LEAF)
-
 /** This structure is used to represent the tree's internal nodes. */
 struct radix_node {
-	/**
-	 * parent node to this node and tag to denote if current node is
-	 * a leaf
-	 */
-	union {
-		struct radix_node *node;
-		uintptr_t tag;
-	} parent;
+	/** parent node */
+        struct radix_node *parent;
 	
 	/**
 	 * array of children -- either nodes or values, depending on
@@ -198,39 +186,35 @@ static inline unsigned int radix_get_index(const struct radix_node *node,
         return index >> shift_amt; 
 }
 
-/** mark a node as being a leaf */
+/** mark a node as being a leaf TODO: remove me */
 static inline void node_mark_leaf(struct radix_node *node)
 {
-	node->parent.tag |= RADIX_TAG_LEAF;
+        (void)node;
 }
 
 /** predicate for determining if a node is a leaf */
 static inline bool node_is_leaf(const struct radix_node *node)
 {
-	return node->parent.tag & RADIX_TAG_LEAF;
+	return node->pref_len == RADIX_LEAF_PREFIX_LEN;
 }
 
 /** predicate for determining if a prefix length denotes a leaf */
 static inline bool prefix_is_leaf(unsigned int pref_len)
 {
-	return RADIX_BITS_PER_KEY - pref_len <= RADIX_TREE_SHIFT;
+	return pref_len == RADIX_LEAF_PREFIX_LEN;
 }
 
-/** get the parent node of a node */
+/** get the parent node of a node TODO: remove me */
 static inline struct radix_node *get_parent(const struct radix_node *node)
 {
-	return (struct radix_node *)(node->parent.tag & RADIX_UNTAG_LEAF);
+	return node->parent;
 }
 
-/** set the parent node of a node */
+/** set the parent node of a node TOD: remove me */
 static inline void set_parent(struct radix_node *node,
-			      const struct radix_node *parent)
+                              struct radix_node *parent)
 {
-	/* gross */
-	uintptr_t old_tag = node->parent.tag & RADIX_TAG_LEAF;
-	uintptr_t parent_tagged = (uintptr_t)parent;
-	parent_tagged |= old_tag;
-	node->parent.tag = parent_tagged;
+	node->parent = parent;
 }
 
 /**
@@ -265,7 +249,7 @@ static struct radix_node *alloc_node(struct radix_head *head,
 				     unsigned long prefix,
 				     unsigned int pref_len)
 {
-	assert(pref_len < RADIX_BITS_PER_KEY - 1);
+	assert(pref_len <= RADIX_LEAF_PREFIX_LEN);
 	
 	struct radix_node *node = malloc(sizeof(struct radix_node));
 	if (!node)
@@ -582,11 +566,9 @@ void radix_delete(struct radix_head *restrict head, unsigned long key,
 	unsigned int index = radix_get_index(node, key);
 	if (!node->children[index].val)
 		return;
-
 	if (out)
 		*out = node->children[index].val;
 	node->children[index].val = NULL;
-
 	head->nentries--;
 	node->entries--;
 
@@ -597,8 +579,11 @@ void radix_delete(struct radix_head *restrict head, unsigned long key,
 
 		free(node);
 
-		if (!parent)
+		if (!parent) {
+                        head->root = NULL;
 			break;
+                }
+                
 		parent->children[index].node = NULL;
 		parent->entries--;
 		node = parent;
