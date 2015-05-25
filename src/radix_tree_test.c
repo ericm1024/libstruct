@@ -26,7 +26,7 @@
 #include "util.h"
 #include <stdlib.h>
 
-#define N 1000000
+#define N 10000
 
 struct test_struct {
 	unsigned long key;
@@ -51,6 +51,17 @@ void test_struct_dtor(void *victim, void *unused)
 	free(victim);
 }
 
+int test_struct_cmp(const void *lhs, const void *rhs)
+{
+	const struct test_struct *ts_lhs = (const struct test_struct *)lhs;
+	const struct test_struct *ts_rhs = (const struct test_struct *)rhs;
+
+	return ts_lhs->key < ts_rhs->key ? -1
+		: ts_lhs->key > ts_rhs->key ? 1
+		: 0;
+		
+}
+
 void init_test_tree_array(struct radix_head *head, unsigned long n,
 			  bool contig, struct test_struct ***array)
 {
@@ -69,6 +80,9 @@ void init_test_tree_array(struct radix_head *head, unsigned long n,
 		ASSERT_TRUE(radix_insert(head, t->key, t),
 			    "insert failed in init_test_tree_array\n");
 	}
+
+	/* sort the elements by key order */
+	qsort(*array, n, sizeof (*array)[0], test_struct_cmp);
 }
 
 void init_test_tree(struct radix_head *head, unsigned long n, bool contig)
@@ -237,24 +251,87 @@ void test_lookup_many()
 
 /*** cursor tests ***/
 
-/* begin */
+/* begin/end */
+#define SMALL_TEST_SIZE (100)
+#define NR_SMALL_RUNS (1000)
+void test_cursor_begin_end()
+{
+ 	RADIX_HEAD(test);
 
-/* end */
+	struct test_struct **array;
+
+	for (unsigned long nr_runs = 0; nr_runs < NR_SMALL_RUNS; nr_runs++) {
+		/* false == test trees use random keys */
+		init_test_tree_array(&test, SMALL_TEST_SIZE, false, &array);
+		
+		unsigned long min = array[0]->key;
+		unsigned long max = array[0]->key;
+		
+		for (unsigned long j = 0; j < SMALL_TEST_SIZE; j++) {
+			unsigned long key = array[j]->key;
+			if (key < min)
+				min = key;
+			if (key > max)
+				max = key;
+		}
+
+		radix_cursor_t cursor;
+		radix_cursor_begin(&test, &cursor);
+		ASSERT_TRUE(radix_cursor_key(&cursor) == min,
+			    "radix_cursor_begin did not initialize "
+			    "cursor to first key in tree\n");
+		radix_cursor_end(&test, &cursor);
+		ASSERT_TRUE(radix_cursor_key(&cursor) == max,
+			    "radix_cursor_end did not initialize "
+			    "cursor to last key in tree\n");
+
+		radix_destroy(&test, test_struct_dtor, NULL);
+		assert_tree_empty(&test, "tree not empty after destruction\n");
+		free(array);
+	}
+}
 
 /* next/prev */
+void test_cursor_next_prev()
+{
+
+}
 
 /* next/prev valid */
+void test_cursor_next_prev_valid()
+{
+
+}
 
 /* next/prev alloc */
+void test_cursor_next_prev_alloc()
+{
+
+}
 
 /* seek */
+void test_cursor_seek()
+{
+
+}
 
 /* cusor has entry */
+void test_cursor_has_entry()
+{
+
+}
 
 /* read/write */
+void test_cursor_read_write()
+{
+
+}
 
 /* read/write block */
+void test_cursor_read_write_block()
+{
 
+}
 
 
 int main(int argc, char **argv)
@@ -268,5 +345,13 @@ int main(int argc, char **argv)
 	REGISTER_TEST(test_delete_many);
 	REGISTER_TEST(test_lookup_one);
 	REGISTER_TEST(test_lookup_many);
+	REGISTER_TEST(test_cursor_begin_end);
+	REGISTER_TEST(test_cursor_next_prev);
+	REGISTER_TEST(test_cursor_next_prev_valid);
+	REGISTER_TEST(test_cursor_next_prev_alloc);
+	REGISTER_TEST(test_cursor_seek);
+	REGISTER_TEST(test_cursor_has_entry);
+	REGISTER_TEST(test_cursor_read_write);
+	REGISTER_TEST(test_cursor_read_write_block);
 	return run_all_tests();
 }
