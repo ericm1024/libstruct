@@ -445,24 +445,20 @@ radix_tree_walk(struct radix_head *restrict head,
                 path = parent;
         }
 
-        if (node_contains_key(path, key)) {
-                /* walk back down */
-                while (!node_is_leaf(path)) {
-                        unsigned int i = radix_get_index(path, key);
-                        struct radix_node *child = path->children[i].node;
-                        if (!child) {
-                                if (!FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
-                                        return FLAG_HAS_BIT(flags,
-                                                            WALK_FLAG_CLOSEST)
-                                                ? path : NULL;
-			
-                                path = alloc_add_node(head, path, key,
-                                                      RADIX_LEAF_PREFIX_LEN);
-                                return path;
-                        }
-                        path = child;
-                }
-        }
+	while (node_contains_key(path, key) && !node_is_leaf(path)) {
+		unsigned int i = radix_get_index(path, key);
+		struct radix_node *child = path->children[i].node;
+		if (!child) {
+			if (!FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
+				return FLAG_HAS_BIT(flags, WALK_FLAG_CLOSEST)
+					? path : NULL;
+
+			path = alloc_add_node(head, path, key,
+					      RADIX_LEAF_PREFIX_LEN);
+			return path;
+		}
+		path = child;
+	}
 
 	if (node_contains_key(path, key))
 		return path;

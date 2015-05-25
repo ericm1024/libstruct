@@ -26,7 +26,7 @@
 #include "util.h"
 #include <stdlib.h>
 
-#define N 100
+#define N 1000000
 
 struct test_struct {
 	unsigned long key;
