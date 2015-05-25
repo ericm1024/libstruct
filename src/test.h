@@ -58,11 +58,14 @@ extern size_t __g_cases_ran;
 
 /**** generic testing functions ****/
 
-void generic_assert(bool condition, const char *msg);
+void __generic_assert(bool condition, const char *msg);
+
+/* set a breakpoint at this function to debug failed asserts */
+void __failed_assert_debug_hook();
 
 /* generic non-exiting asserts */
-#define ASSERT_TRUE(condition, msg) generic_assert(condition, msg)
-#define ASSERT_FALSE(condition, msg) generic_assert(!(condition), msg)
+#define ASSERT_TRUE(condition, msg) __generic_assert(condition, msg)
+#define ASSERT_FALSE(condition, msg) __generic_assert(!(condition), msg)
 
 /* run all the tests in the test_functions array. Returns the number of
  * failed tests

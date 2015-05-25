@@ -29,10 +29,17 @@ size_t __g_cases_ran = 0;
 
 /**** generic testing functions ****/
 
-void generic_assert(bool condition, const char *msg)
+void __attribute__((noinline)) __failed_assert_debug_hook()
+{
+	/* don't want this omptimzed away */
+	__asm__ volatile ("" ::: "memory");
+}
+
+void __generic_assert(bool condition, const char *msg)
 {
 	__g_cases_ran++;
 	if (condition != true) {
+		__failed_assert_debug_hook();
 		fprintf(OUT_FILE, "%s", msg);
 		__g_cases_failed++;
 	}
