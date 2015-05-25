@@ -124,7 +124,7 @@ int point_cmp(void *lhs, void *rhs)
 
 /**** tests ****/
 
-#define n 200
+#define n 10000
 
 void test_insert()
 {

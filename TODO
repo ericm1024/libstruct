@@ -11,13 +11,13 @@ issues:
 
 in progress:
 	btree
+        radix tree (integers)
 
 future structures:
 	skip list
 	heap (binomial, fibonacci)
 	counting filter
 	trie (strings)
-	radix tree (integers)
 	union-join
 	stack
 	deque
@@ -34,6 +34,8 @@ refactoring:
 	- remove typdefs for structs, old style was better (i.e. revert to
 	  always using struct foo instead of typedef'ing "struct foo" to
 	  "foo_t" everywhere)
+        - change tests to use good random numbers via pcg64_random() instead
+          of libc's rand() because it's a bad egg.
 
 wish list:
 	- benchmark and optimize all structures

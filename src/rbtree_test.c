@@ -137,7 +137,7 @@ long point_cmp(void *lhs, void *rhs)
 
 /**** tests ****/
 
-#define n 1000
+#define n 10000
 
 void test_insert()
 {

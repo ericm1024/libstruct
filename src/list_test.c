@@ -32,7 +32,7 @@
 /**** global tesing types, variables, and macros ****/
 
 /* size of test lists */
-#define data_length 1000
+#define data_length 10000
 
 struct point_t {
 	int x;

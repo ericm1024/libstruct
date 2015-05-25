@@ -4,7 +4,7 @@ INCLUDE = ../include
 RNG = ./pcg-c-master
 CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) \
 	-I$(RNG)/include
-TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test \
+TARGETS = flist_test list_test avl_test bloom_test rbtree_test \
 	  chunky_str_test binary_heap_test cuckoo_htable_test radix_tree_test
 
 vpath %.h $(INCLUDE)

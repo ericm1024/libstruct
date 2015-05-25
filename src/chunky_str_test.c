@@ -883,10 +883,9 @@ int main(int argc, char **argv)
 	if (!run_all_tests())
 		passed = false;
 
-
 	string_size = 10000;
 	if (!run_all_tests())
 		passed = false;
-
+        
 	return passed;
 }
