@@ -26,7 +26,7 @@
 #include "util.h"
 #include <stdlib.h>
 
-#define N 10000
+#define N 10
 
 struct test_struct {
 	unsigned long key;
@@ -218,7 +218,7 @@ void test_lookup_one()
 
 void test_lookup_many()
 {
- 	RADIX_HEAD(test);
+  	RADIX_HEAD(test);
 
 	struct test_struct **array;
 	bool tf[] = {true, false};
@@ -300,7 +300,86 @@ void test_cursor_next_prev()
 /* next/prev valid */
 void test_cursor_next_prev_valid()
 {
+	RADIX_HEAD(test);
 
+	struct test_struct **array;
+	bool tf[] = {true, false};
+
+	for (unsigned int i = 0; i < sizeof(tf)/sizeof(tf[0]); i++) {
+		init_test_tree_array(&test, N, tf[i], &array);
+		ASSERT_TRUE(test.nentries == N,
+			    "entries was wrong after insert\n");
+		
+		radix_cursor_t cursor;
+		radix_cursor_t control_cursor;
+
+		/* walk the tree in order of increasing keys */
+		radix_cursor_begin(&test, &cursor);
+		for (unsigned long i = 0; i < N; i++) {
+			/*
+			 * array is sorted, so walking the array should give
+			 * us the same key order as walking the tree in order with
+			 * radix_cursor_{next,prev}
+			 */
+			struct test_struct *t = array[i];
+
+			ASSERT_TRUE(radix_cursor_key(&cursor) == t->key,
+				    "cursor key was wrong when walking tree in "
+				    "forward order\n");
+			
+			/* if ther actually should be a next value */
+			if (i != N-1)
+				ASSERT_TRUE(radix_cursor_next(&cursor),
+					    "radix_cursor_next returned false "
+					    "when a next element was "
+					    "expected\n");
+			else
+				ASSERT_FALSE(radix_cursor_next(&cursor),
+					     "radix_cursor_next returned true "
+					     "when a next element was not "
+					     "expected\n");
+		}
+
+		/* make sure we actually got to the end of the tree */
+		radix_cursor_end(&test, &control_cursor);
+		ASSERT_TRUE(radix_cursor_key(&cursor) 
+			    == radix_cursor_key(&control_cursor),
+			    "cursor did not match end cursor after walking "
+			    "in forward order\n");
+
+		/* walk the tree in order of decreasing keys */
+		radix_cursor_end(&test, &cursor);
+		for (unsigned long i = N; i-- > 0; ) {
+			struct test_struct *t = array[i];
+			
+			ASSERT_TRUE(radix_cursor_key(&cursor) == t->key,
+				    "cursor key was wrong when walking tree in "
+				    "reverse order\n");
+
+			/* if there actually should be a previous value */
+			if (i != 0)
+				ASSERT_TRUE(radix_cursor_prev(&cursor),
+					    "radix_cursor_prev returned false "
+					    "when previous element was "
+					    "expected\n");
+			else
+				ASSERT_FALSE(radix_cursor_prev(&cursor),
+					     "radix_cursor_prev returned true "
+					     "when a previous element was not "
+					     "expected\n");
+		}
+
+		/* make sure we actually got to the beginning of the tree */
+		radix_cursor_begin(&test, &control_cursor);
+		ASSERT_TRUE(radix_cursor_key(&cursor)
+			    == radix_cursor_key(&control_cursor),
+			    "cursor did not match begin cursor after walking "
+			    "in reverse order\n");
+
+		radix_destroy(&test, test_struct_dtor, NULL);
+		assert_tree_empty(&test, "tree not empty after destruction\n");
+		free(array);
+	}
 }
 
 /* next/prev alloc */
