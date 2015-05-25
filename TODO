@@ -4,17 +4,13 @@ tests:
 	testee.
 
 bugs:
-	- hash table is bassicly broken
 	- rbtree postorder itteration is failing.
 
 issues:
-	- posix memalign exists on OSX but it does not define the macros
-	  that glibc does to denote that it exists, so the compile-time
-	  test for it in htable.c fails even though it shouldn't.
+	- none that I know of right now
 
 in progress:
 	btree
-	hash table
 
 future structures:
 	skip list
@@ -31,7 +27,6 @@ housekeeping/etc:
 	  seperate build directory
 	- write a make target that actually compiles the code as a shared
 	  library (i.e. make the damn thing usable)
-	- write a shell script to run tests.
 
 refactoring:
 	- do a once over of all old code, particularly avl_tree. There
@@ -39,7 +34,6 @@ refactoring:
 	- remove typdefs for structs, old style was better (i.e. revert to
 	  always using struct foo instead of typedef'ing "struct foo" to
 	  "foo_t" everywhere)
-	- rewrite hash table
 
 wish list:
 	- benchmark and optimize all structures

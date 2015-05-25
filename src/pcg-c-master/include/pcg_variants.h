@@ -40,6 +40,16 @@
 
 #include <inttypes.h>
 
+/*   
+ * nasty hack to get this to compile with GCC ... gcc supports 128 bit
+ * math on most (all?) arches that are native 64 bit, but it doesn't define
+ * __SIZEOF_INT128__, so we define it ourselves based on some reasonably
+ * sketchy logic
+ */
+#if !defined(__SIZEOF_INT128__) && defined(__GNUC__) && __WORDSIZE == 64
+    #define __SIZEOF_INT128__ 16
+#endif
+
 #if __SIZEOF_INT128__
     typedef __uint128_t pcg128_t;
     #define PCG_128BIT_CONSTANT(high,low) \

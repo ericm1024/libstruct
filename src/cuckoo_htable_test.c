@@ -36,7 +36,7 @@
  *       about you, but I don't have that much memory.
  */
 
-#define n 100
+#define n 1000000
 struct value { int x; int y; };	
 
 /* 
@@ -151,8 +151,11 @@ void test_exists()
 	CUCKOO_HASH_TABLE(t);
 	cuckoo_htable_init(&t, 16);
 
-	uint64_t keys[2*n];
-	struct value data[n];
+	uint64_t *keys = malloc(sizeof (uint64_t) * (2*n));
+	struct value *data = malloc(sizeof (struct value) * n);
+
+	ASSERT_TRUE(keys, "malloc barfed\n");
+	ASSERT_TRUE(data, "malloc barfed\n");
 
 	for (size_t i = 0; i < n; i++) {
 		keys[i] = i;
@@ -164,7 +167,7 @@ void test_exists()
 
 	/* initialize the rest of the keys (for negative asserts) */
 	for (size_t i = n; i < 2*n; i++)
-		keys[i] = rand();
+		keys[i] = rand() + n; /* add n to avoid colisions */
 
 	for (size_t i = 0; i < n; i++) {
 		ASSERT_TRUE(cuckoo_htable_exists(&t, keys[i]), "test_exists: exists "
@@ -174,6 +177,8 @@ void test_exists()
 	}
 
 	cuckoo_htable_destroy(&t);
+	free(keys);
+	free(data);
 }
 
 /*
@@ -188,8 +193,11 @@ void test_remove()
 	CUCKOO_HASH_TABLE(t);
 	cuckoo_htable_init(&t, 16);
 
-	uint64_t keys[n];
-	struct value data[n];
+	uint64_t *keys = malloc(sizeof (uint64_t) * n);
+	struct value *data = malloc(sizeof (struct value) * n);
+
+	ASSERT_TRUE(keys, "malloc barfed\n");
+	ASSERT_TRUE(data, "malloc barfed\n");
 
 	for (size_t i = 0; i < n; i++) {
 		keys[i] = i;
@@ -199,9 +207,8 @@ void test_remove()
 			    "insert failed.\n");
 	}
 	ASSERT_TRUE(t.nentries == n, "nentries was wrong after "
-		    "inserting.\n");
-	
-	/* initialize the rest of the keys (for negative asserts) */
+		    "inserting.\n");	
+
 	for (size_t i = n; i < 2*n; i++) {
 		cuckoo_htable_remove(&t, i);
 		ASSERT_TRUE(t.nentries == n, "nentries was decremented "
@@ -217,6 +224,8 @@ void test_remove()
 	}
 	
 	cuckoo_htable_destroy(&t);
+	free(keys);
+	free(data);
 }
 
 /*
@@ -230,9 +239,12 @@ void test_get()
 	CUCKOO_HASH_TABLE(t);
 	cuckoo_htable_init(&t, 512);
 
-	uint64_t keys[2*n];
-	struct value data[n];
+	uint64_t *keys = malloc(sizeof (uint64_t) * n * 2);
+	struct value *data = malloc(sizeof (struct value) * n);
 
+	ASSERT_TRUE(keys, "malloc barfed\n");
+	ASSERT_TRUE(data, "malloc barfed\n");
+	
 	for (size_t i = 0; i < n; i++) {
 		keys[i] = i;
 		data[i].x = rand();
@@ -243,7 +255,8 @@ void test_get()
 
 	/* initialize the rest of the keys (for negative asserts) */
 	for (size_t i = n; i < 2*n; i++)
-		keys[i] = rand();
+		/* add n to avoid colisions with things actually inserted */
+		keys[i] = rand() + n;
 
 	for (size_t i = 0; i < n; i++) {
 		void const *val;
@@ -261,6 +274,8 @@ void test_get()
 	}
 
 	cuckoo_htable_destroy(&t);
+	free(keys);
+	free(data);
 }
 
 
@@ -272,7 +287,7 @@ int main(void)
 	REGISTER_TEST(test_insert_few);
 	REGISTER_TEST(test_insert_many);
 	REGISTER_TEST(test_exists);
-	//REGISTER_TEST(test_remove);
+	REGISTER_TEST(test_remove);
 	REGISTER_TEST(test_get);
 	return run_all_tests();
 }

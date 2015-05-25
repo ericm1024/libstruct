@@ -52,5 +52,7 @@ static inline bool seed_rng()
 		return fallback_seed_rng();
 
 	pcg64_srandom(seeds[0], seeds[1]);
+	pcg32_srandom(pcg64_random(), pcg64_random());
+	
 	return true;
 }

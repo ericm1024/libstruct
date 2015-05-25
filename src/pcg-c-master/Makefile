@@ -28,7 +28,7 @@ all:
 	cd sample; $(MAKE)
 
 PREFIX = /usr/local
-export CC = clang
+export CC = gcc
 
 install: all
 	install src/libpcg_random.a $PREFIX/lib
@@ -44,5 +44,3 @@ clean:
 	cd test-high; $(MAKE) clean
 	cd sample; $(MAKE) clean
 	rm -f extras/*.o
-
-	

@@ -54,8 +54,13 @@
 /* hash table types */
 struct cuckoo_bucket;
 
+/* note -- you should not declare one of these yourself */
 struct cuckoo_table {
-	/* nr of buckets in each table */
+	/*
+	 * nr of buckets in each table -- NOT the actual capacity of this
+	 * entire struct or a single array. That is given by the capacity
+	 * field of a struct cuckoo_head
+	 */
 	unsigned long capacity;
 	
 	/* buckets where key-value pairs are stored */ 
@@ -77,7 +82,27 @@ struct cuckoo_head {
 	/* maximum number of key-value pairs that we can store */
 	unsigned long capacity;
 
+	/* the actual table */
 	struct cuckoo_table table;
+
+	/*
+	 * some statistics to keep tabs on how many major internal
+	 * ops have occured.
+	 *     - resizes keeps track of the number of times the table
+	 *       has been resized. Does not count resizes that failed.
+	 *     - rehashes keeps track of the number of times the table
+	 *       has needed to be rehashed. Note that if a rehash fails,
+	 *       this will not be incremented -- this is just the number of
+	 *       times that we needed to go into the rehash loop.
+	 *     - rehash_fails keeps track of the number of times
+	 *       that a rehash has failed and needed to be restarted
+	 *     - rehash_fails_max keeps track of the maximum number of times
+	 *       that a single rehash has needed to restart.
+	 */
+	unsigned long stat_resizes;
+	unsigned long stat_rehashes;
+	unsigned long stat_rehash_fails;
+	unsigned long stat_rehash_fails_max;
 };
 
 /**
@@ -91,7 +116,11 @@ struct cuckoo_head {
 		.capacity = 0,				\
                 .table = {				\
 		        .capacity = 0,			\
-		        .tables = {0}}};
+		        .tables = {0}},			\
+		.stat_resizes = 0,			\
+		.stat_rehashes = 0,			\
+		.stat_rehash_fails = 0,			\
+		.stat_rehash_fails_max = 0};
 
 /**
  * \brief Initialize a hash table of a given size.

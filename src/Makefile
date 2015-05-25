@@ -1,8 +1,9 @@
-CC = clang
+CC = gcc
 OPTFLAGS = -O0
 INCLUDE = ../include
 RNG = ./pcg-c-master
-CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) -I$(RNG)/include
+CFLAGS = -g -std=gnu99 -Wall -Wextra -pedantic $(OPTFLAGS) -I$(INCLUDE) \
+	-I$(RNG)/include
 TARGETS = flist_test list_test avl_test htable_test bloom_test rbtree_test \
 	  chunky_str_test binary_heap_test cuckoo_htable_test radix_tree_test
 
@@ -25,9 +26,6 @@ list_test: list_test.o list.o test.o
 
 avl_test: avl_test.o avl_tree.o test.o
 	$(CC) $(CFLAGS) -o $@ $^
-
-htable_test: htable_test.o htable.o test.o fasthash.o murmurhash.o
-	$(CC) $(CFLAGS) -lm -o $@ $^
 
 cuckoo_htable_test: cuckoo_htable_test.o cuckoo_htable.o test.o fasthash.o
 	$(CC) $(CFLAGS) -lm -o $@ $^ $(RNG)/src/libpcg_random.a
@@ -68,13 +66,7 @@ avl_tree.o: avl_tree.c avl_tree.h bitops.h
 test.o: test.c test.h
 	$(CC) $(CFLAGS) -c $<
 
-htable_test.o: htable_test.c htable.h
-	$(CC) $(CFLAGS) -c $<
-
 cuckoo_htable_test.o: cuckoo_htable_test.c cuckoo_htable.h
-	$(CC) $(CFLAGS) -c $<
-
-htable.o: htable.c htable.h fasthash.h murmurhash.h
 	$(CC) $(CFLAGS) -c $<
 
 fasthash.o: fasthash.c fasthash.h
