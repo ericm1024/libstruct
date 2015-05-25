@@ -154,11 +154,18 @@ static inline unsigned long radix_key_mask(unsigned int pref_len)
 	return mask ^ ~(~mask >> RADIX_TREE_SHIFT);
 }
 
+static inline bool prefix_matches_key(unsigned long prefix,
+                                      unsigned int pref_len,
+                                      unsigned long key)
+{
+        return (radix_node_mask(pref_len) & (key ^ prefix)) == 0;
+}                                      
+
 /** predicate to determine if a node or its subtree contains a given key */
 static inline bool node_contains_key(const struct radix_node *node,
 				     unsigned long key)
 {
-	return (radix_node_mask(node->pref_len) & (key ^ node->prefix)) == 0;
+	return prefix_matches_key(node->prefix, node->pref_len, key);
 }
 
 /**
@@ -186,22 +193,10 @@ static inline unsigned int radix_get_index(const struct radix_node *node,
         return index >> shift_amt; 
 }
 
-/** mark a node as being a leaf TODO: remove me */
-static inline void node_mark_leaf(struct radix_node *node)
-{
-        (void)node;
-}
-
 /** predicate for determining if a node is a leaf */
 static inline bool node_is_leaf(const struct radix_node *node)
 {
 	return node->pref_len == RADIX_LEAF_PREFIX_LEN;
-}
-
-/** predicate for determining if a prefix length denotes a leaf */
-static inline bool prefix_is_leaf(unsigned int pref_len)
-{
-	return pref_len == RADIX_LEAF_PREFIX_LEN;
 }
 
 /** get the parent node of a node TODO: remove me */
@@ -234,6 +229,36 @@ static inline unsigned long node_index_to_key(const struct radix_node *node,
 	return key;
 }
 
+static struct radix_node *__alloc_node(struct radix_node *parent,
+                                       unsigned long prefix,
+                                       unsigned int pref_len)
+{
+	assert(pref_len <= RADIX_LEAF_PREFIX_LEN);
+	
+	struct radix_node *new_node = malloc(sizeof *new_node);
+	if (!new_node)
+		return NULL;
+
+	/* initialize the new_node */
+        new_node->prefix = prefix;
+	new_node->pref_len = pref_len;
+	new_node->entries = 0;
+        set_parent(new_node, parent);
+
+        /*
+         * todo: keep track of children in a one word bitmap, because this
+         * initialization is really really cache-unfriendly. on 64 bit with
+         * RADIX_TREE_CHILDREN = 64, we're reading 0.5KiB per node for this,
+         * which might hurt. need some benches to really find out if this
+         * is an issue though. the malloc might just completely trump
+         * everything
+         */
+	for (unsigned long i = 0; i < RADIX_TREE_CHILDREN; i++)
+		new_node->children[i].node = NULL;
+
+        return new_node;
+}
+
 /**
  * \brief allocate and initialize a new node and insert it into its parent.
  *
@@ -244,42 +269,59 @@ static inline unsigned long node_index_to_key(const struct radix_node *node,
  *
  * \return the new node, or null if memory allocation failed.
  */
-static struct radix_node *alloc_node(struct radix_head *head,
-				     struct radix_node *parent,
-				     unsigned long prefix,
-				     unsigned int pref_len)
+static struct radix_node *alloc_add_node(struct radix_head *head,
+                                         struct radix_node *parent,
+                                         unsigned long prefix,
+                                         unsigned int pref_len)
 {
-	assert(pref_len <= RADIX_LEAF_PREFIX_LEN);
-	
-	struct radix_node *node = malloc(sizeof(struct radix_node));
-	if (!node)
-		return node;
+        unsigned int node_idx = 0;
+        struct radix_node *child = NULL;
+        struct radix_node *new_node = __alloc_node(parent, prefix, pref_len);
+        if (!new_node)
+                return NULL;
 
-	/* initialize the node */
-	if (prefix_is_leaf(pref_len))
-		node_mark_leaf(node);
-	
-	for (unsigned long i = 0; i < RADIX_TREE_CHILDREN; i++)
-		node->children[i].node = NULL;
+        head->nnodes++;
+        /*
+         * this is a little nasty -- the node we're adding may or may not
+         * have a parent, and it also may or may not have a child. We may need
+         * to update the following fields:
+         *
+         *     new_node->parent_index
+         *     new_node->children[child_idx]      if (child)
+         *     new_node->entries                  if (child)
+         *
+         *     child->parent                      if (child)
+         *     child->parent_index                if (child)
+         *
+         *     parent->entries                    if (parent && !child)
+         *     parent->children[node_idx]         if (parent)
+         */
+        if (parent) {
+                node_idx = radix_get_index(parent, prefix);
+                child = parent->children[node_idx].node;
+                parent->children[node_idx].node = new_node;
+                if (!child)
+                        parent->entries++;
+        } else {
+                /*
+                 * just because we don't have a parent doesn't mean the tree
+                 * doesn't have a root, it just means we are the new root 
+                 */
+                child = head->root;
+                head->root = new_node;
+        }
 
-	node->prefix = prefix;
-	node->pref_len = pref_len;
-	set_parent(node, parent);
-	node->entries = 0;
+        if (child) {
+                unsigned int child_idx = radix_get_index(new_node,
+                                                         child->prefix);
+                new_node->children[child_idx].node = child;
+                new_node->entries++;
+                child->parent_index = child_idx;
+                set_parent(child, new_node);
+        }
 
-	/* physically put the node in the tree */
-	head->nnodes++;
-	if (parent) {
-		assert(head->root);
-		node->parent_index = radix_get_index(parent, prefix);
-		parent->children[node->parent_index].node = node;
-		parent->entries++;
-	} else {
-		node->parent_index = 0;
-		head->root = node;
-	}
-
-	return node;
+        new_node->parent_index = node_idx;
+	return new_node;
 }
 
 /** insert a value into a leaf node */
@@ -291,7 +333,7 @@ static inline void insert_into_node(struct radix_head *restrict head,
 	assert(node_contains_key(node, key));
 	head->nentries++;
 	node->entries++;
-	
+
 	unsigned long index = radix_get_index(node, key);
 	assert(!node->children[index].val);
 	node->children[index].val = value;
@@ -318,28 +360,25 @@ static struct radix_node *split_node_key(struct radix_head *restrict head,
 					 struct radix_node *restrict child,
 					 unsigned long key)
 {
-	/*
-	 * start the new node off with an incrementally shorter prefix.
-	 * note that this may be shortened below
-	 */
-	struct radix_node *path =
-		alloc_node(head, get_parent(child), child->prefix,
-			   child->pref_len - RADIX_TREE_SHIFT);
+        /* compute the prefix length of the new node */
+        unsigned int pref_len = child->pref_len;
+        unsigned long prefix = child->prefix;
+        do {
+                pref_len -= RADIX_TREE_SHIFT;
+        } while (!prefix_matches_key(prefix, pref_len, key));
+
+        /* allocate the new node */
+	struct radix_node *path = alloc_add_node(head, get_parent(child),
+                                                 prefix, pref_len);
 	if (!path)
 		return NULL;
 
-	/* fix up the new path's prefix length */
-	while (!node_contains_key(path, key))
-		path->pref_len -= RADIX_TREE_SHIFT;
-
+        /* debugging asserts */
 	assert(radix_get_index(path, child->prefix)
                != radix_get_index(path, key));
-
-	/* fix up the rest of the tree */
-	set_parent(child, path);
-	child->parent_index = radix_get_index(path, child->prefix);
-	path->children[child->parent_index].node = child;
-	path->entries++;
+        struct radix_node *parent = get_parent(path);
+        if (parent)
+                assert(path->pref_len > parent->pref_len);
 
 	return path;
 }
@@ -374,6 +413,8 @@ static struct radix_node *split_node_key(struct radix_head *restrict head,
  * if memory allocation failed. Otherwise returns the node containing key, or
  * null if no such node could be foud.
  *
+ * todo: this may need to be re-written with gotos to make it fast (and perhaps
+ * more readable...)
  */ 
 static struct radix_node *
 radix_tree_walk(struct radix_head *restrict head,
@@ -381,46 +422,53 @@ radix_tree_walk(struct radix_head *restrict head,
 		unsigned long key, int flags)
 {
 	struct radix_node *path = start ? start : head->root;
-	
+
 	/* if the tree is empty, allocate something */
 	if (!head->root) {
 		if (!FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
 			return NULL;
 		
-		path = alloc_node(head, NULL, key, RADIX_LEAF_PREFIX_LEN);
+		path = alloc_add_node(head, NULL, key, RADIX_LEAF_PREFIX_LEN);
 		if (!path)
 			return NULL;
 	}
-	
+
 	/*
 	 * if we're deep enough down in the tree that the subtree we're
 	 * in doesn't contain the key we're searching for, walk up till
 	 * we find one
 	 */
-	while (get_parent(path) && !node_contains_key(path, key))
-		path = get_parent(path);
+	while (!node_contains_key(path, key)) {
+                struct radix_node *parent = get_parent(path);
+                if (!parent)
+                        break;
+                path = parent;
+        }
 
-	/* walk back down */
-	while (!node_is_leaf(path)) {
-		unsigned int i = radix_get_index(path, key);
-		struct radix_node *child = path->children[i].node;
-		if (!child) {
-			if (!FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
-				return FLAG_HAS_BIT(flags, WALK_FLAG_CLOSEST)
-					? path : NULL;
+        if (node_contains_key(path, key)) {
+                /* walk back down */
+                while (!node_is_leaf(path)) {
+                        unsigned int i = radix_get_index(path, key);
+                        struct radix_node *child = path->children[i].node;
+                        if (!child) {
+                                if (!FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
+                                        return FLAG_HAS_BIT(flags,
+                                                            WALK_FLAG_CLOSEST)
+                                                ? path : NULL;
 			
-			path = alloc_node(head, path, key,
-					  RADIX_LEAF_PREFIX_LEN);
-			return path;
-		}
-		path = child;
-	}
+                                path = alloc_add_node(head, path, key,
+                                                      RADIX_LEAF_PREFIX_LEN);
+                                return path;
+                        }
+                        path = child;
+                }
+        }
 
 	if (node_contains_key(path, key))
 		return path;
 	else if (!FLAG_HAS_BIT(flags, WALK_FLAG_ALLOC))
 		return FLAG_HAS_BIT(flags, WALK_FLAG_CLOSEST) ? path : NULL;
-	
+
 	/*
 	 * we need to allocate both an intermediate node and
 	 * a new leaf node. If memory allocation fails on the
@@ -432,7 +480,7 @@ radix_tree_walk(struct radix_head *restrict head,
 	path = split_node_key(head, path, key);
 	if (!path)
 		return NULL;
-	path = alloc_node(head, path, key, RADIX_LEAF_PREFIX_LEN);
+	path = alloc_add_node(head, path, key, RADIX_LEAF_PREFIX_LEN);
 	return path;
 }
 
@@ -563,6 +611,9 @@ void radix_delete(struct radix_head *restrict head, unsigned long key,
 	if (!node)
 		return;
 
+        assert(node_contains_key(node, key));
+        assert(node_is_leaf(node));
+        
 	unsigned int index = radix_get_index(node, key);
 	if (!node->children[index].val)
 		return;
@@ -760,7 +811,7 @@ const void *radix_cursor_read(radix_cursor_t *cursor)
 	 * if the cursor is sitting on a non-leaf node, the key it indexes
 	 * may still exist (we just have to walk to get to the leaf)...
 	 * This can only happen if the tree was modified since the last time
-	 * the cursor was moved.
+		 * the cursor was moved.
 	 */
 	if (!node_is_leaf(n)) {
 		n = radix_tree_walk(cursor->owner, n, cursor->key,
