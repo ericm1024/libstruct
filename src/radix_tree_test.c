@@ -26,7 +26,7 @@
 #include "util.h"
 #include <stdlib.h>
 
-#define N 1000
+#define N 100
 
 struct test_struct {
 	unsigned long key;
@@ -158,13 +158,14 @@ void test_delete_many()
 		/* contiguous keys */
 		init_test_tree_array(&test, N, tf[i], &array);
 		ASSERT_TRUE(test.nentries == N,
-			    "entries was wrong after contiguous insert\n");
+			    "entries was wrong after insert\n");
 		
 		for (unsigned long i = 0; i < N; i++) {
 			struct test_struct *t = array[i];
 			const void *res;
 			radix_delete(&test, t->key, &res);
-			ASSERT_TRUE(t == (struct test_struct *)res, "deleted value is incorrect\n");
+			ASSERT_TRUE(t == (struct test_struct *)res,
+                                    "deleted value is incorrect\n");
 			ASSERT_TRUE(test.nentries == N - (i + 1),
 				    "entries was wrong\n");
 
@@ -211,7 +212,7 @@ void test_lookup_many()
 	for (unsigned int i = 0; i < sizeof(tf)/sizeof(tf[0]); i++) {
 		init_test_tree_array(&test, N, tf[i], &array);
 		ASSERT_TRUE(test.nentries == N,
-			    "entries was wrong after contiguous insert\n");
+			    "entries was wrong after insert\n");
 		
 		for (unsigned long i = 0; i < N; i++) {
 			struct test_struct *t = array[i];
@@ -219,7 +220,7 @@ void test_lookup_many()
 			ASSERT_TRUE(radix_lookup(&test, t->key, &res),
 				    "lookup failed for inserted element\n");
 			ASSERT_TRUE(t == (struct test_struct *)res,
-				    "deleted value is incorrect\n");
+				    "lookup returned wrong value\n");
 
 			radix_delete(&test, t->key, NULL);
 			ASSERT_FALSE(radix_lookup(&test, t->key, NULL), 
