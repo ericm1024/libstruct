@@ -53,8 +53,8 @@ void test_struct_dtor(void *victim, void *unused)
 
 int test_struct_cmp(const void *lhs, const void *rhs)
 {
-	const struct test_struct *ts_lhs = (const struct test_struct *)lhs;
-	const struct test_struct *ts_rhs = (const struct test_struct *)rhs;
+	const struct test_struct *ts_lhs = *(const struct test_struct **)lhs;
+	const struct test_struct *ts_rhs = *(const struct test_struct **)rhs;
 
 	return ts_lhs->key < ts_rhs->key ? -1
 		: ts_lhs->key > ts_rhs->key ? 1

@@ -713,15 +713,13 @@ bool radix_cursor_prev(radix_cursor_t *cursor)
 }
 
 static inline bool __radix_cursor_next_prev_valid(radix_cursor_t *cursor,
-						  bool next)
+						  bool dir)
 {
-	unsigned int start_index = radix_get_index(cursor->node, cursor->key) 
-		                       + (next ? 1 : -1);
+	unsigned int start_index = radix_get_index(cursor->node, cursor->key)
+		                       + (dir == WALK_LR_RIGHT ? 1 : -1);
 	unsigned int index;
-	struct radix_node *node =
-		radix_tree_walk_lr(cursor->node, start_index,
-				   next ? WALK_LR_RIGHT : WALK_LR_LEFT,
-				   &index);
+	struct radix_node *node = radix_tree_walk_lr(cursor->node, start_index,
+						     dir, &index);
 	if (!node)
 		return false;
 
@@ -732,12 +730,12 @@ static inline bool __radix_cursor_next_prev_valid(radix_cursor_t *cursor,
 
 bool radix_cursor_next_valid(radix_cursor_t *cursor)
 {
-	return __radix_cursor_next_prev_valid(cursor, true);
+	return __radix_cursor_next_prev_valid(cursor, WALK_LR_RIGHT);
 }
 
 bool radix_cursor_prev_valid(radix_cursor_t *cursor)
 {
-	return __radix_cursor_next_prev_valid(cursor, false);
+	return __radix_cursor_next_prev_valid(cursor, WALK_LR_LEFT);
 }
 
 static inline bool __radix_cursor_next_prev_alloc(radix_cursor_t *cursor,
