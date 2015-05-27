@@ -294,7 +294,171 @@ void test_cursor_begin_end()
 /* next/prev */
 void test_cursor_next_prev()
 {
+        RADIX_HEAD(test);
+        struct test_struct **array;
+        radix_cursor_t cursor;
+        radix_cursor_t control_cursor;
 
+        /* contiguous key range  */
+        init_test_tree_array(&test, N, true, &array);
+
+        /* walk forward */
+        radix_cursor_begin(&test, &cursor);
+        for (unsigned long i = 0; i < N; i++) {
+                struct test_struct *t = array[i];
+                ASSERT_TRUE(radix_cursor_key(&cursor) == t->key,
+                            "key was wrong when walking forward\n");
+
+                ASSERT_TRUE(radix_cursor_next(&cursor),
+                            "cursor_next returned false when traversing "
+                            "contiguous tree\n");
+        }
+
+        /*
+         * make sure we actually got to the end. we should have moved one
+         * past the end, so move back one first
+         */
+        radix_cursor_prev(&cursor);
+        radix_cursor_end(&test, &control_cursor);
+        ASSERT_TRUE(radix_cursor_key(&cursor)
+                    == radix_cursor_key(&control_cursor),
+                    "cursor was not at end of contiguous tree "
+                    "after traversing all elements\n");
+
+        /* walk back down */
+        radix_cursor_end(&test, &cursor);
+        for (unsigned long i = N; i-- > 0; ) {
+                struct test_struct *t = array[i];
+                ASSERT_TRUE(radix_cursor_key(&cursor) == t->key,
+                            "key was wrong when walking forward\n");
+
+                if (i > 0)
+                        ASSERT_TRUE(radix_cursor_prev(&cursor),
+                                    "cursor_prev returned false when "
+                                    "traversing contiguous tree\n");
+                else
+                        ASSERT_FALSE(radix_cursor_prev(&cursor),
+                                     "cursor_prev returned true when cursor "
+                                     "should have been at beginning of "
+                                     "tree\n");
+        }
+
+        /* make sure we actually got to the beginning */
+        radix_cursor_end(&test, &control_cursor);
+        ASSERT_TRUE(radix_cursor_key(&cursor)
+                    == radix_cursor_key(&control_cursor),
+                    "cursor was not at beginning of contiguous tree "
+                    "after traversing all elements\n");
+
+        /* destroy the tree and... */
+        radix_destroy(&test, test_struct_dtor, NULL);
+        
+        /* do it again with non-contiguous key range */
+        for (unsigned long i = 0; i < N; i++) {
+                array[i] = malloc(sizeof *array[i]);
+                if (!array[i]) {
+                        ASSERT_TRUE(false, "malloc barfed\n");
+                        exit(1);
+                }
+
+                unsigned long key;
+                /*
+                 * find a new unique key. we want the keys to be in a
+                 * small-ish range so we can actually travserse the range
+                 * in a reasonable ammount of time. We also don't want to
+                 * repeat this loop too much and we want to stress prev/next,
+                 * so we use 100*N as the key range
+                 */
+                do {
+                        key = pcg64_random() % (100 * N);
+                } while (radix_lookup(&test, key, NULL));
+
+                array[i]->key = key;
+                ASSERT_TRUE(radix_insert(&test, key, array[i]),
+                            "insert returned false\n");
+        }
+        qsort(*array, N, sizeof (*array)[0], test_struct_cmp);
+
+        /* traverse the tree in forward order */
+        radix_cursor_begin(&test, &cursor);
+        for (unsigned long i = 0, array_idx = 0; i < array[N-1]->key; i++) {
+                ASSERT_TRUE(radix_cursor_key(&cursor) == i,
+                            "cursor key was wrong when traversing "
+                            "non-contiguous tree in forward order\n");
+                
+                if (array[array_idx]->key == i) {
+                        ASSERT_TRUE(radix_cursor_has_entry(&cursor),
+                                    "cursor_has_entry was wrong when "
+                                    "traversing non-contiguous tree in "
+                                    "forward order\n");
+                        ASSERT_TRUE(radix_cursor_read(&cursor)
+                                    == array[array_idx],
+                                    "cursor read was wrong when traversing "
+                                    "non-contiguous tree in forward order\n");
+                        array_idx++;
+                } else
+                        ASSERT_FALSE(radix_cursor_has_entry(&cursor),
+                                     "cursor had entry when traversing "
+                                     "non-contiguous tree in forward "
+                                     "order\n");
+                
+                ASSERT_TRUE(radix_cursor_next(&cursor),
+                            "radix_cursor_next returned false\n");
+        }
+
+        /* make sure we actually got to the end */
+        radix_cursor_prev(&cursor);
+        radix_cursor_end(&test, &control_cursor);
+        ASSERT_TRUE(radix_cursor_key(&cursor)
+                    == radix_cursor_key(&control_cursor),
+                    "cursor key did not match that of end cursor after "
+                    "traversing non-contiguous tree in forward order\n");
+
+        /* traverse the tree in reverse order */
+        radix_cursor_end(&test, &cursor);
+        for (unsigned long i = array[N-1]->key + 1, array_idx = N-1;
+             i-- > 0; )  {
+                ASSERT_TRUE(radix_cursor_key(&cursor) == i,
+                            "cursor key was wrong when traversing "
+                            "non-contiguous tree in reverse order\n");
+                
+                if (array[array_idx]->key == i) {
+                        ASSERT_TRUE(radix_cursor_has_entry(&cursor),
+                                    "cursor_has_entry was wrong when "
+                                    "traversing non-contiguous tree in "
+                                    "reverse order\n");
+                        ASSERT_TRUE(radix_cursor_read(&cursor)
+                                    == array[array_idx],
+                                    "cursor read was wrong when traversing "
+                                    "non-contiguous tree in reverse order\n");
+                        array_idx--;
+                } else
+                        ASSERT_FALSE(radix_cursor_has_entry(&cursor),
+                                     "cursor had entry when traversing "
+                                     "non-contiguous tree in reverse "
+                                     "order\n");
+
+                if (i != 0)
+                        ASSERT_TRUE(radix_cursor_prev(&cursor),
+                                    "radix_cursor_prev returned false "
+                                    "when traversing non-contigous tree in "
+                                    "reverse order\n");
+                else
+                        ASSERT_FALSE(radix_cursor_prev(&cursor),
+                                     "radix_cursor_prev returned true "
+                                     "when trying to go backward from first "
+                                     "element in non-contiguous tree\n");
+        }
+
+        /* make sure we actually got to the beginning of the tree */
+        radix_cursor_begin(&test, &control_cursor);
+        ASSERT_TRUE(radix_cursor_key(&control_cursor)
+                    == radix_cursor_key(&cursor),
+                    "cursor index was not equal to that of begin cursor "
+                    "after traversing non-contig tree in reverse order\n");
+
+        radix_destroy(&test, test_struct_dtor, NULL);
+        free(array);
 }
 
 /* next/prev valid */
@@ -329,13 +493,13 @@ void test_cursor_next_prev_valid()
 			
 			/* if ther actually should be a next value */
 			if (i != N-1)
-				ASSERT_TRUE(radix_cursor_next(&cursor),
-					    "radix_cursor_next returned false "
+				ASSERT_TRUE(radix_cursor_next_valid(&cursor),
+					    "next valid returned false "
 					    "when a next element was "
 					    "expected\n");
 			else
-				ASSERT_FALSE(radix_cursor_next(&cursor),
-					     "radix_cursor_next returned true "
+				ASSERT_FALSE(radix_cursor_next_valid(&cursor),
+					     "next valid returned true "
 					     "when a next element was not "
 					     "expected\n");
 		}
@@ -353,18 +517,18 @@ void test_cursor_next_prev_valid()
 			struct test_struct *t = array[i];
 			
 			ASSERT_TRUE(radix_cursor_key(&cursor) == t->key,
-				    "cursor key was wrong when walking tree in "
-				    "reverse order\n");
+				    "cursor key was wrong when walking tree "
+                                    "in reverse order\n");
 
 			/* if there actually should be a previous value */
 			if (i != 0)
-				ASSERT_TRUE(radix_cursor_prev(&cursor),
-					    "radix_cursor_prev returned false "
+				ASSERT_TRUE(radix_cursor_prev_valid(&cursor),
+					    "prev valid returned false "
 					    "when previous element was "
 					    "expected\n");
 			else
-				ASSERT_FALSE(radix_cursor_prev(&cursor),
-					     "radix_cursor_prev returned true "
+				ASSERT_FALSE(radix_cursor_prev_valid(&cursor),
+					     "prev valid returned true "
 					     "when a previous element was not "
 					     "expected\n");
 		}
