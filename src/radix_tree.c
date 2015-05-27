@@ -537,7 +537,7 @@ radix_tree_walk_lr(struct radix_node *start, int start_index,
 		}
 		/* otherwise grab the parent and go from there */
 		else {
-			index = node->parent_index + (left ? -1 : 0);
+			index = node->parent_index + (left ? -1 : 1);
 			node = get_parent(node);
 		}
 	}
