@@ -6,7 +6,8 @@ OBJS = pcg-advance-8.o pcg-advance-16.o pcg-advance-32.o pcg-advance-64.o \
 
 CPPFLAGS += -I../include
 CFLAGS += -O3
-CFLAGS   += -std=c99
+CFLAGS += -std=c99
+CFLAGS += -fPIC
 
 all: libpcg_random.a
 
