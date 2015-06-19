@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 /**
- * \file binheap.h 
+ * \file binary_heap.h
  *
  * \author Eric Mueller
  * 
