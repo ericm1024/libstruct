@@ -8,25 +8,36 @@ bugs:
 
 issues:
 	- none that I know of right now
+        - binary heap does not support decrease key (should)
 
 in progress:
-	btree
         radix tree (integers)
+        binomial heap
 
 future structures:
 	skip list
-	heap (binomial, fibonacci)
 	counting filter
 	trie (strings)
 	union-join
 	stack
+        queue
 	deque
+        btree
+        lazy binomial heap
+        fibonacci heap
+        binary decision diagram
+        d-ary heap
+        leftist heap
+        r-tree
+        adjacency list
+        bitmap
+        freelist
+        splay tree
+        beap
+        skew keap
 
 housekeeping/etc:
-	- clean up make files, put variables in top level make file, use
-	  seperate build directory
-	- write a make target that actually compiles the code as a shared
-	  library (i.e. make the damn thing usable)
+        - tests should compile into bin/ and not test/
 
 refactoring:
 	- do a once over of all old code, particularly avl_tree. There
@@ -36,6 +47,9 @@ refactoring:
 	  "foo_t" everywhere)
         - change tests to use good random numbers via pcg64_random() instead
           of libc's rand() because it's a bad egg.
+        - change all declaration macros (i.e. LIST_HEAD) to be initializers
+          so they can be used with dynamically allocated memory
+        - make script that runs tests better
 
 wish list:
 	- benchmark and optimize all structures
