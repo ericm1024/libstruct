@@ -56,3 +56,6 @@ static inline bool seed_rng()
 	
 	return true;
 }
+
+#define container_of(__ptr, __type, __member)   \
+        ((__type *)((char *)(__ptr) - offsetof(__type, __member)))
