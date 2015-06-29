@@ -62,7 +62,7 @@ struct list_head {
 	struct list *first;
 	struct list *last;
 	size_t length;
-	const unsigned long offset;
+	unsigned long offset;
 };
 
 /**
@@ -169,7 +169,7 @@ extern void list_reverse(struct list_head *hd);
  * \param hd  The head of the list.
  * \return The first element in the list.
  */
-static inline void *list_first(struct list_head *hd)
+static inline void *list_first(const struct list_head *hd)
 {
 	return hd->first ? (void *)((uintptr_t)hd->first - hd->offset) : NULL;
 }
@@ -180,7 +180,7 @@ static inline void *list_first(struct list_head *hd)
  * \param hd  The head of the list.
  * \return The last element in the list.
  */
-static inline void *list_last(struct list_head *hd)
+static inline void *list_last(const struct list_head *hd)
 {
 	return hd->last ? (void *)((uintptr_t)hd->last - hd->offset) : NULL;
 }
@@ -192,7 +192,7 @@ static inline void *list_last(struct list_head *hd)
  * \param elem  The current element.
  * \return The next element in the list.
  */
-static inline void *list_next(struct list_head *hd, void *elem)
+static inline void *list_next(const struct list_head *hd, const void *elem)
 {
 	struct list *curent = (struct list *)((uintptr_t)elem + hd->offset);
 	return curent->next ? (void *)((uintptr_t)curent->next - hd->offset) 
@@ -206,7 +206,7 @@ static inline void *list_next(struct list_head *hd, void *elem)
  * \param elem  The current element.
  * \return The previous element in the list.
  */
-static inline void *list_prev(struct list_head *hd, void *elem)
+static inline void *list_prev(const struct list_head *hd, const void *elem)
 {
 	struct list *curent = (struct list *)((uintptr_t)elem + hd->offset);
 	return curent->prev ? (void *)((uintptr_t)curent->prev - hd->offset)
