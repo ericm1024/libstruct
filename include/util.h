@@ -20,12 +20,14 @@
  * \brief Small set of generic utilities (random numbers, etc)
  */
 
+#include "pcg_variants.h"
+
+#include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 #include <unistd.h>
-#include "pcg_variants.h"
 
 #define __RANDOM_SRC "/dev/urandom"
 
@@ -59,3 +61,10 @@ static inline bool seed_rng()
 
 #define container_of(__ptr, __type, __member)   \
         ((__type *)((char *)(__ptr) - offsetof(__type, __member)))
+
+#define swap_t(__type, __a, __b)                        \
+        do {                                            \
+                __type __swap_tmp = (__a);              \
+                (__a) = (__b);                          \
+                (__b) = __swap_tmp;                     \
+        } while (0);
