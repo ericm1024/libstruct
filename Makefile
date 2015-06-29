@@ -81,7 +81,8 @@ shared: objs
 	cd $(OBJDIR)
 	$(CC) -shared -Wl,-soname,$(SO_LIB_NAME) \
 		-o $(LIBDIR)/$(SO_LIB_FULL_NAME) $(CFLAGS) $(OBJS)
-	ln -s $(LIBDIR)/$(SO_LIB_FULL_NAME) $(LIBDIR)/$(SO_LIB_NAME)
+	test -L $(LIBDIR)/$(SO_LIB_NAME) || \
+		ln -s $(LIBDIR)/$(SO_LIB_FULL_NAME) $(LIBDIR)/$(SO_LIB_NAME)
 
 
 # compiled all objects as a static library
