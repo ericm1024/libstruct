@@ -17,9 +17,10 @@
  *
  * \author Eric Mueller
  *
- * \brief Header file for a doubly linked list.
+ * \brief Header file for a doubly linked list. Based heavily off of linux kernel
+ * linked lists.
  *
- * \detail This is a fairly straightforward doubly-linked list. It is
+ * \detail This is a fairly straightforward circular doubly-linked list. It is
  * implemented as a structure member and not a container, so if you want
  * your struct foo to be in a list, add a struct list member to your struct
  * foo, i.e.
@@ -32,15 +33,12 @@
  *               .
  *     };
  *
- * To use the list, first declare a struct flist_head with the FLIST_HEAD
- * macro, ex:
- *
- *     LIST_HEAD(foo_list);
- *
- * Then use any combination of list_insert_before, list_insert_after,
- * list_delete, list_push_front, list_push_back, list_pop_front, list_pop_back,
- * list_splice, list_for_each, list_for_each_range, and list_revers.
- *
+ * The 'head' of the list is no more that another list link. An empty list
+ * is thus represented as a list whose next and prev members point to itself.
+ * This, combined with the cyclic representation, ensure that there are never
+ * null pointers in the list, which means this code is almost entirely
+ * branchless.
+ * 
  * This should go without saying, but the list does no memory allocation.
  *
  * Synchronization is left to the caller.
@@ -55,33 +53,22 @@
 
 #include "util.h"
 
-/* doubly-linked list types */
 struct list {
+        /* next element, or first if this is the head of a list */
 	struct list *next;
+        
+        /* previous element, or last if this is the head of a list */
 	struct list *prev;
 };
 
-struct list_head {
-	struct list *first;
-	struct list *last;
-	size_t length;
-	unsigned long offset;
-};
-
 /**
- * \brief Create and initialize a new empty list_head.
+ * \brief Initialize a list.
  * 
- * \param name    The name of the list to create.
- * \param type    Type of the enclosing struct.
- * \param member  Name of the list member in the enclosing struct declaration.
+ * \param name    struct list to initizlize. (not a pointer)
  */
-#define LIST_HEAD(name, type, member)				   \
-	struct list_head name =	(struct list_head){		   \
-		                 .first = NULL,			   \
-				 .last = NULL,			   \
-				 .length = 0,			   \
-				 .offset = offsetof(type, member)}
+#define LIST_INIT(list) { .next = &(list), .prev = &(list) }
 
+/* FIXME */
 static inline void list_headswap(struct list_head *one,
                                  struct list_head *other)
 {
@@ -92,189 +79,174 @@ static inline void list_headswap(struct list_head *one,
         swap_t(struct list *, one->last, other->last);
 }
 
-/**
- * \brief Insert a list element before a given list element.
- *
- * \param hd        Pointer to the head of the list. 
- * \param before    Pointer to the element to insert before. May be null, in
- *                  which case behavior is the same as list_push_back
- * \param insertee  Pointer to the element to insert.
- */
-extern void list_insert_before(struct list_head *hd, void *before,
-			       void *insertee);
+static inline bool list_is_empty(struct list *list)
+{
+        return list->next == list;
+}
 
 /**
- * \brief Insert a list element after a given element.
+ * \brief Insert a list element before a given list element. If before is the
+ * head of a list, this is equivalent to pushing onto the back of a list.
  *
- * \param hd        Pointer to the head of the list.
- * \param after     Pointer to the element to insert after. May be null, in
- *                  which case behavior is the same as list_push_front
- * \param insertee  Pointer to the element to insert.
+ * \param before    Element to insert before. May not be null.
+ * \param insertee  Element to insert.
  */
-extern void list_insert_after(struct list_head *hd, void *after,
-			      void *insertee);
+static inline void
+list_insert_before(struct list *before, struct list *insertee)
+{
+        before->prev->next = insertee;
+        insertee->prev = before->prev;
+        insertee->next = before;
+        before->prev = insertee;
+}
+
+/**
+ * \brief Insert a list element after a given element. If after is the head
+ * of a list, this is equivalent to pushing onto the front of a list.
+ *
+ * \param after     Element to insert after. May not be null.
+ * \param insertee  Element to insert.
+ */
+static inline void
+list_insert_after(struct list *after, struct list *insertee)
+{
+        after->next->prev = insertee;
+        insertee->next = after->next;
+        insertee->prev = after;
+        after->next = insertee;
+}
 
 /**
  * \brief Remove an element from a list.
  *
- * \param hd      Pointer to the head of the list. 
- * \param elem    Pointer to the list element to remove. If NULL, nothing is
- *                done.
+ * \param victim    List element to remove.
  */
-extern void list_delete(struct list_head *hd, void *elem);
-
-/**
- * \brief Insert an element at the front of a list.
- *
- * \param hd      Pointer to the head of the list.
- * \param pushee  Pointer to the element to insert.
- */
-extern void list_push_front(struct list_head *hd, void *pushee);
-
-/**
- * Insert an element at the back of a list.
- *
- * \param hd      Pointer to the head of the list.
- * \param pushee  Pointer to the element to insert.
- */
-extern void list_push_back(struct list_head *hd, void *pushee);
+static inline void list_delete(struct list *victim)
+{
+        victim->next->prev = victim->prev;
+        victim->prev->next = victim->next;
+}
 
 /**
  * \brief Remove and return the first element of a list.
  *
- * \param hd  Pointer to the head of the list.
- * \retrn     A pointer to the first element in the list, or NULL if the list
- *            is empty.
+ * \param hd  head of the list.
+ * \retrn     The first element of the list or NULL if the list is empty.
  */
-extern void *list_pop_front(struct list_head *hd);
+static inline struct list *list_pop_front(struct list *hd)
+{
+        struct list *front = hd->next;
+        list_delete(front);
+
+        /* if the head of the list was itself, it was empty */
+        return front == hd ? NULL : front;
+}
 
 /**
  * \brief Remove and return the last element of a list.
  *
- * \param hd  Pointer to the head of the list. A NULL head 
- * \return    A pointer to the last element in the list, or NULL if the list
- *            is empty.
+ * \param hd  Head of the list. 
+ * \return    The last element of the list or NULL if the list is empty.
  */
-extern void *list_pop_back(struct list_head *hd);
+static inline struct list *list_pop_back(struct list *hd)
+{
+        struct list *back = hd->next;
+        list_delete(back);
+
+        return back == hd ? NULL : back;
+}
 
 /**
  * \brief Insert an entire list after the node 'after'.
- * \warning Splicee is no longer valid after this function is called (its length
- * and members are zero'd out).
  * 
- * \param hd       Pointer to the head of the first list.
- * \param where    Pointer to the list node to splice after.
- * \param splicee  Pointer to the head of the list to insert.
+ * \param after    Pointer to the element of the first list to insert after.
+ * \param splicee  Head of the list to splice in. This list is re-initialized
+ *                 so that we don't end up with a list with two heads.
  */
-extern void list_splice(struct list_head *hd, void *after,
-			struct list_head *splicee);
-
-/**
- * \brief Reverse a list.
- *
- * \param hd  Pointer to the head of the list to reverse. 
- */
-extern void list_reverse(struct list_head *hd);
-
-/**
- * Get the first element in a list.
- *
- * \param hd  The head of the list.
- * \return The first element in the list.
- */
-static inline void *list_first(const struct list_head *hd)
+static inline void list_splice(struct list *after, struct list *splicee)
 {
-	return hd->first ? (void *)((uintptr_t)hd->first - hd->offset) : NULL;
+        if (list_is_empty(splicee))
+                return;
+
+        /* before:
+         * A -- after -- B
+         * C -- splicee -- D
+         *
+         * after:  
+         * A -- after -- D -- (rest of splicee list) -- C -- B
+         */ 
+        after->next->prev = splicee->prev;
+        splicee->prev->next = after->next;
+        after->next = splicee->next;
+        splicee->next->prev = after;
+
+        LIST_INIT(splicee);
 }
 
 /**
- * Get the last element in a list.
- *
- * \param hd  The head of the list.
- * \return The last element in the list.
- */
-static inline void *list_last(const struct list_head *hd)
-{
-	return hd->last ? (void *)((uintptr_t)hd->last - hd->offset) : NULL;
-}
-
-/**
- * Get the next element in a list.
- *
- * \param hd    The head of the list.
- * \param elem  The current element.
- * \return The next element in the list.
- */
-static inline void *list_next(const struct list_head *hd, const void *elem)
-{
-	struct list *curent = (struct list *)((uintptr_t)elem + hd->offset);
-	return curent->next ? (void *)((uintptr_t)curent->next - hd->offset) 
-		            : NULL;
-}
-
-/**
- * Get the previous element in a list.
+ * \brief get the struct enclosing a list
  * 
- * \param hd    The head of the list.
- * \param elem  The current element.
- * \return The previous element in the list.
+ * \param list    pointer to a struct list
+ * \param type    type of the enclosing struct
+ * \param member  name of the struct list member in type
  */
-static inline void *list_prev(const struct list_head *hd, const void *elem)
-{
-	struct list *curent = (struct list *)((uintptr_t)elem + hd->offset);
-	return curent->prev ? (void *)((uintptr_t)curent->prev - hd->offset)
-		            : NULL;
-}
+#define list_entry(list, type, member) container_of(list, type, member)
+
+#define list_first_entry(head, type, member)    \
+        container_of((head)->next, type, member)
+
+#define list_last_entry(head, type, member)    \
+        container_of((head)->prev, type, member)
+
+#define list_next_entry(itter, type, member)    \
+        container_of((itter)->member.next, type, member)
+
+#define list_prev_entry(itter, type, member)    \
+        container_of((itter)->member.prev, type, member)
 
 /**
- * \brief Execute a function on each element in the list.
- * \note The functon is applied to the container, not the list node itself.
+ * \brief itterate over every element in a list.
  *
- * \param list       Pointer to the list to iterate over.
- * \param type       Type of the enclosing struct. Should be a struct type, not
- *                   a pointer type.
- * \param iter_name  (token) name of the iterator variable to declare. The
- *                   macro decalres a variable of type @type * with this name.
- *                   Don't decalre one yourself.
- * \detail           It is safe to use functions like free within this loop.
+ * \param head   Pointer to the head of the list.
+ * \param list   Pointer to a struct list to use as the loop variable.
+ *
+ * \detail This itterates over all the struct lists in a list, not the
+ * enclosing structures (which is probably what you want -- see
+ * list_for_each_entry)
  */
-#define list_for_each(list, type, iter_name)				\
-	for (type *iter_name = (type*)list_first(list),			\
-	     *___foreach_next = iter_name    			        \
-		     ? (type*)list_next(list, iter_name)		\
-		     : NULL;						\
-	     iter_name;							\
-	     iter_name = ___foreach_next,				\
-	     ___foreach_next = iter_name				\
-		     ? (type*)list_next(list, iter_name)		\
-		     : NULL)
+#define list_for_each(head, list)                               \
+	for (list = (head)->next; list != (head); list = list->next)
 
 /**
- * \brief Execute a function on each element in the list in the range [first,
- * last).
- * \note The function is applied to the container, not the list node itself.
+ * \brief itterate over enclosing structure in a list
  *
- * \param list       Pointer to the head of the list.
- * \param type       Type of the enclosing struct. Should be a struct type, not
- *                   a pointer type.
- * \param iter_name  (token) name of the iterator variable to declare. The
- *                   macro decalres a variable of type @type * with this name.
- *                   Don't decalre one yourself.
- * \paarm first      Pointer to the element to start the loop at.
- * \param last       Pointer to the element at which the loop will stop (the
- *                   loop will not run for this element)
- * \detail           It is safe to use functions like free within this loop.
+ * \param head    Pointer to the head of the list to itterate over. Note that
+ *                the macro will evaluate this expression multiple times.
+ * \param itter   Itterator variable with typeof(itter) == type *
+ * \param type    The type of the enclosing struct.
+ * \param member  The name of the struct list member in type.
  */
-#define list_for_each_range(list, type, iter_name, first, last)	\
-	for (type *iter_name = first,				\
-	     *___foreach_next = iter_name			\
-		     ? (type*)list_next(list, iter_name)	\
-		     : NULL;					\
-	     iter_name != last;					\
-	     iter_name = ___foreach_next,			\
-	     ___foreach_next = iter_name			\
-		     ? (type*)list_next(list, iter_name)	\
-		     : NULL)
+#define list_for_each_entry(head, itter, type, member)          \
+        for (itter = list_entry((head)->first, type, member);   \
+             &itter->member != (head);                          \
+             itter = list_next_entry(itter, type, member))
 
+/**
+ * \brief Same as list_for_each_entry, but memory safe. i.e. you can safely
+ * release any memory assicated with the itterator varaible within the loop.
+ *
+ * \param head    Pointer to the head of the list to itterate over. Note that
+ *                the macro will evaluate this expression multiple times.
+ * \param itter   Itterator variable with typeof(itter) == type *
+ * \param type    The type of the enclosing struct.
+ * \param member  The name of the struct list member in type.
+ * \param tmp     Temporary varaible of the same type as itter.
+ */
+#define list_for_each_entry_safe(head, itter, type, member, tmp)        \
+        for (itter = list_entry((head)->first, type, member),           \
+                             tmp = list_next_entry(itter, type, member);\
+             &itter->member != (head);                                  \
+             itter = tmp, tmp = list_next_entry(tmp, type, member))
+             
 
 #endif /* STRUCT_LIST_H */
