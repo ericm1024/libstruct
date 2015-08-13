@@ -311,10 +311,8 @@ void avl_insert(struct avl_head *hd, struct avl_node *insertee)
 		int cmp = hd->cmp(insertee, *where);
 		if (cmp < 0)
 			where = &((*where)->children[AVL_LEFT]);
-		else if (cmp > 0)
+		else
 			where = &((*where)->children[AVL_RIGHT]);
-		else /* tried to insert the same value twice */
-			return;
 	}
 
 	/* insert 'in' */

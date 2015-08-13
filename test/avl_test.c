@@ -64,13 +64,13 @@ void valid_node(struct avl_head *hd, struct avl_node *n)
 	ASSERT_TRUE(bf == n->balance, "valid_node: bad balance factor.\n");
 
 	if (n->children[0])
-		ASSERT_TRUE(hd->cmp(n->children[0], n) == -1,
+		ASSERT_TRUE(hd->cmp(n->children[0], n) <= 0,
 			    "valid_node: left child was not less than root.\n");
 	if (n->children[1])
-		ASSERT_TRUE(hd->cmp(n->children[1], n) == 1,
+		ASSERT_TRUE(hd->cmp(n->children[1], n) >= 0,
 			    "valid_node: right child was not greater than root.\n");
 	if (n->children[0] && n->children[1])
-		ASSERT_TRUE(hd->cmp(n->children[0], n->children[1]) == -1,
+		ASSERT_TRUE(hd->cmp(n->children[0], n->children[1]) <= 0,
                             "valid_node: left child > right child.\n");
 	
 	valid_node(hd, n->children[0]);
@@ -107,8 +107,8 @@ void print_tree(struct avl_head *t)
 
 int point_cmp(struct avl_node *lhs, struct avl_node *rhs)
 {
-        int lx = container_of(lhs, test_t, avl)->x;
-	int rx = container_of(rhs, test_t, avl)->x;
+        uint64_t lx = container_of(lhs, test_t, avl)->x;
+	uint64_t rx = container_of(rhs, test_t, avl)->x;
 
 	if (lx < rx)
 		return -1;
@@ -129,7 +129,7 @@ void test_insert()
 	test_t data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
-		data[i].x = pcg64_random();
+		data[i].x = pcg64_random() % (n/2);
 		avl_insert(&t, &data[i].avl);
 		assert_is_valid_tree(&t);
 		ASSERT_TRUE(t.n_nodes == (i + 1),
@@ -138,12 +138,12 @@ void test_insert()
 
 	for (size_t i = 0; i < n; i++) {
 		struct avl_node *e = avl_find(&t, &data[i].avl);
-		ASSERT_TRUE(e == &data[i].avl,
+		ASSERT_TRUE(container_of(e, test_t, avl)->x == data[i].x,
 			"test_basic: error. could not find inserted element.\n");
 	}
 
 	for (size_t i = n; i < 2*n; i++) {
-		data[i].x = pcg64_random(); /* initialize to shut up valgrind */
+		data[i].x = pcg64_random() + n; /* initialize to shut up valgrind */
 		struct avl_node *e = avl_find(&t, &data[i].avl);
 		ASSERT_TRUE(e == NULL,
 			    "test_basic: error. found element in tree"
@@ -157,18 +157,17 @@ void test_delete()
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
-		data[i].x = pcg64_random();
+		data[i].x = pcg64_random() % (n/2);
 		avl_insert(&t, &data[i].avl);
 	}
 	
 	for (size_t i = 0; i < n; i++) {
 		avl_delete(&t, &data[i].avl);
 		assert_is_valid_tree(&t);
-		ASSERT_TRUE(avl_find(&t, &data[i].avl) == NULL,
-			    "test_basic: error. found element after deleting it.\n");
 		ASSERT_TRUE(t.n_nodes == n - (i + 1),
 			    "test_basic: error. n_nodes is wrong.\n");
 	}
+        ASSERT_TRUE(t.root == NULL, "root was not null after emptying tree\n");
 }
 
 /* avl next */
@@ -229,8 +228,8 @@ void test_splice()
 	test_t data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
-		data[i].x = pcg64_random();
-		data[i + n].x = pcg64_random();
+		data[i].x = pcg64_random() % (n/2);
+		data[i + n].x = pcg64_random() % (n/2);
 		avl_insert(&t, &data[i].avl);
 		avl_insert(&s, &data[i+n].avl);
 	}
@@ -243,7 +242,8 @@ void test_splice()
 		    " after splicing.\n");
 
 	for (size_t i = 0; i < n*2; i++) {
-		ASSERT_TRUE(avl_find(&t, &data[i].avl) == &data[i].avl,
+                struct avl_node *node = avl_find(&t, &data[i].avl);
+		ASSERT_TRUE(container_of(node, test_t, avl)->x == data[i].x,
 			    "test_splice: could not find element in target tree"
 			    " after splicing.\n");
 	}
