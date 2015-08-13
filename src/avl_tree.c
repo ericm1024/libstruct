@@ -309,17 +309,12 @@ void avl_insert(struct avl_head *hd, struct avl_node *insertee)
 	while (*where) {
 		parent = *where;
 		int cmp = hd->cmp(insertee, *where);
-		if (cmp == -1)
+		if (cmp < 0)
 			where = &((*where)->children[AVL_LEFT]);
-		else if (cmp == 1)
+		else if (cmp > 0)
 			where = &((*where)->children[AVL_RIGHT]);
-		else if (cmp == 0) /* tried to insert the same value twice */
+		else /* tried to insert the same value twice */
 			return;
-		else {
-			fprintf(stderr, "avl_insert: comparator returned value "
-				"other than -1, 0, or 1");
-			return;
-		}
 	}
 
 	/* insert 'in' */
@@ -468,18 +463,12 @@ struct avl_node *avl_find(struct avl_head *hd, struct avl_node *findee)
 	struct avl_node *n = hd->root;
 	while (n) {
 		int cmp = hd->cmp(findee, n);
-		switch (cmp) {
-		case -1:
+                if (cmp < 0)
 			n = n->children[AVL_LEFT];
-			break;
-		case 0:
-			return n;
-		case 1:
+                else if (cmp > 0)
 			n = n->children[AVL_RIGHT];
-			break;
-		default:
-			assert(false); /* TODO: handle bug */
-		}
+		else
+			return n;
 	}
 	return NULL;
 }

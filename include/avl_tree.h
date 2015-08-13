@@ -76,6 +76,7 @@ struct avl_node {
 	unsigned short cradle;
 };
 
+/* should return < 0 if lhs < rhs, 0 is lhs == rhs, and > 0 if lhs > rhs */
 typedef int (*avl_cmp_t)(struct avl_node *lhs, struct avl_node *rhs);
 
 /** metadata/head structure for avl tree */
