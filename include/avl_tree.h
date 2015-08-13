@@ -116,7 +116,7 @@ struct avl_head {
  * \param hd        Pointer to the head of the tree.
  * \param insertee  Pointer to the node to insert.
  */
-extern void avl_insert(struct avl_head *hd, void *insertee);
+void avl_insert(struct avl_head *hd, void *insertee);
 
 /**
  * Find an return an element matching the given element.
@@ -126,7 +126,7 @@ extern void avl_insert(struct avl_head *hd, void *insertee);
  * \return Pointer to the node being looked for, or NULL if no such node was
  *         found.
  */
-extern void *avl_find(struct avl_head *hd, void *findee);
+void *avl_find(struct avl_head *hd, void *findee);
 
 /**
  * Delete an element from the tree.
@@ -134,7 +134,7 @@ extern void *avl_find(struct avl_head *hd, void *findee);
  * \param hd      Pointer to the head of the tree
  * \param victim  Pointer to the node to remove.
  */
-extern void avl_delete(struct avl_head *hd, void *victim);
+void avl_delete(struct avl_head *hd, void *victim);
 
 /**
  * Get the next (in order) element in the tree.
@@ -142,7 +142,7 @@ extern void avl_delete(struct avl_head *hd, void *victim);
  * \param elem  Pointer to the element before the desired element.
  * \return Pointer to the next element in the tree.
  */
-extern void *avl_next(struct avl_head *hd, void *elem);
+void *avl_next(struct avl_head *hd, void *elem);
 
 /**
  * Get the previous (in order) element in the tree.
@@ -150,7 +150,7 @@ extern void *avl_next(struct avl_head *hd, void *elem);
  * \param elem  Pointer to the element after the desired element.
  * \return Pointer to the next element in the tree.
  */
-extern void *avl_prev(struct avl_head *hd, void *elem);
+void *avl_prev(struct avl_head *hd, void *elem);
 
 /**
  * Get the in-order first element in the tree.
@@ -158,7 +158,7 @@ extern void *avl_prev(struct avl_head *hd, void *elem);
  * \param hd  Pointer to the head of the tree.
  * \return Pointer to the first element in the tree.
  */
-extern void *avl_first(struct avl_head *hd);
+void *avl_first(struct avl_head *hd);
 
 /**
  * Get the in order last element in the tree.
@@ -166,7 +166,7 @@ extern void *avl_first(struct avl_head *hd);
  * \param hd  Pointer to the head of the tree.
  * \return Pointer to the last element in the tree.
  */
-extern void *avl_last(struct avl_head* hd);
+void *avl_last(struct avl_head* hd);
 
 /**
  * Insert all the elements of another avl tree into the avl tree in hd. This
@@ -175,7 +175,7 @@ extern void *avl_last(struct avl_head* hd);
  * \param hd       Pointer to the avl tree to insert into.
  * \param splicee  Pointer to the avl tree to insert.
  */
-extern void avl_splice(struct avl_head *hd, struct avl_head *splicee);
+void avl_splice(struct avl_head *hd, struct avl_head *splicee);
 
 /**
  * Loop over the elements in the tree, in order.
