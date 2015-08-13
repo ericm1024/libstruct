@@ -33,7 +33,7 @@ static inline struct list *data_to_node(struct list_head *hd, void *d)
         return d ? (struct list *)((uintptr_t)d + hd->offset) : NULL;
 }
 
-static inline void link(struct list *a, struct list *b)
+static inline void list_link(struct list *a, struct list *b)
 {
 	if (a)
 		a->next = b;
@@ -41,10 +41,10 @@ static inline void link(struct list *a, struct list *b)
 		b->prev = a;
 }
 
-static inline void link3(struct list *a, struct list *b, struct list *c)
+static inline void list_link3(struct list *a, struct list *b, struct list *c)
 {
-	link(a,b);
-	link(b,c);
+	list_link(a,b);
+	list_link(b,c);
 }
 
 static inline bool is_first(struct list *a)
@@ -81,7 +81,7 @@ void list_insert_before(struct list_head *hd, void *before,
 	
 	if (is_first(l_before))
 		hd->first = l_in;
-	link3(l_before->prev, l_in, l_before);
+	list_link3(l_before->prev, l_in, l_before);
 	hd->length++;
 }
 
@@ -97,7 +97,7 @@ void list_insert_after(struct list_head *hd, void *after, void *in)
 	
 	if (is_last(l_after))
 		hd->last = l_in;
-	link3(l_after, l_in, l_after->next);
+	list_link3(l_after, l_in, l_after->next);
 	hd->length++;
 }
 
@@ -112,7 +112,7 @@ void list_delete(struct list_head *hd, void *victim)
 		hd->last = l_vic->prev;
 	if (is_first(l_vic))
 		hd->first = l_vic->next;
-	link(l_vic->prev, l_vic->next);
+	list_link(l_vic->prev, l_vic->next);
 	hd->length--;
 }
 
@@ -121,7 +121,7 @@ void list_push_front(struct list_head *hd, void *pushee)
 	struct list *push = data_to_node(hd, pushee);
 	
 	terminate_with_nulls(push);
-	link(push, hd->first);
+	list_link(push, hd->first);
 	if (is_empty(hd))	
 		hd->last = push;
 	hd->first = push;
@@ -133,7 +133,7 @@ void list_push_back(struct list_head *hd, void *pushee)
 	struct list *push = data_to_node(hd, pushee);
 
 	terminate_with_nulls(push);
-	link(hd->last, push);
+	list_link(hd->last, push);
 	if (is_empty(hd))
 		hd->first = push;
 	hd->last = push;
@@ -164,10 +164,10 @@ void list_splice(struct list_head *hd, void *after,
 	assert(hd->offset == splicee->offset);
 
 	if (after) {
-		link(splicee->last, l_after->next);
-		link(l_after, splicee->first);
+		list_link(splicee->last, l_after->next);
+		list_link(l_after, splicee->first);
 	} else {
-		link(splicee->last, hd->first);
+		list_link(splicee->last, hd->first);
 		hd->first = splicee->first;
 	}
 		

@@ -51,6 +51,9 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <assert.h>
+
+#include "util.h"
 
 /* doubly-linked list types */
 struct list {
@@ -78,6 +81,16 @@ struct list_head {
 				 .last = NULL,			   \
 				 .length = 0,			   \
 				 .offset = offsetof(type, member)}
+
+static inline void list_headswap(struct list_head *one,
+                                 struct list_head *other)
+{
+        assert(one->offset == other->offset);
+
+        swap_t(size_t, one->length, other->length);
+        swap_t(struct list *, one->first, other->first);
+        swap_t(struct list *, one->last, other->last);
+}
 
 /**
  * \brief Insert a list element before a given list element.
