@@ -98,10 +98,16 @@ objs: dirs deps
 	cd $(SRCDIR) && $(MAKE)
 
 
-# compile and run all tests
+# compile all tests
 .PHONY: test
 test: shared
 	cd $(TESTDIR) && $(MAKE) test
+
+
+# run all tests
+.PHONY: runtest
+runtest: test
+	cd $(TESTDIR) && $(MAKE) runtest
 
 
 # compile all dependencies

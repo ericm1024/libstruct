@@ -6,6 +6,9 @@ all: $(TESTS)
 
 .PHONY: test
 test: $(TESTS)
+
+.PHONY: runtest
+runtest: test
 	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LIBDIR) \
 		$(BINDIR)/runtests $(TESTS)
 
