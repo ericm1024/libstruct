@@ -116,7 +116,7 @@ void avl_insert(struct avl_head *hd, struct avl_node *insertee);
 /**
  * Find an return an element matching the given element.
  *
- * \param hd  
+ * \param hd      Pointer to the head of the tree.
  * \param findee  Pointer to an element matching the elememt to find.
  * \return Pointer to the node being looked for, or NULL if no such node was
  *         found.
