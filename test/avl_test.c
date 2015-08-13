@@ -31,7 +31,7 @@
 #include <stdint.h>
 
 typedef struct {
-	int x;
+	uint64_t x;
 	struct avl_node avl;
 } test_t;
 
@@ -94,7 +94,7 @@ void print_node(struct avl_node *n)
 	test_t *data = container_of(n, test_t, avl);
 	printf("(");
 	print_node(n->children[0]);
-	printf(", %i, ", data->x);
+	printf(", %"PRIu64", ", data->x);
 	print_node(n->children[1]);
 	printf(")");
 }
@@ -129,7 +129,7 @@ void test_insert()
 	test_t data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
-		data[i].x = rand();
+		data[i].x = pcg64_random();
 		avl_insert(&t, &data[i].avl);
 		assert_is_valid_tree(&t);
 		ASSERT_TRUE(t.n_nodes == (i + 1),
@@ -143,7 +143,7 @@ void test_insert()
 	}
 
 	for (size_t i = n; i < 2*n; i++) {
-		data[i].x = rand(); /* initialize to shut up valgrind */
+		data[i].x = pcg64_random(); /* initialize to shut up valgrind */
 		struct avl_node *e = avl_find(&t, &data[i].avl);
 		ASSERT_TRUE(e == NULL,
 			    "test_basic: error. found element in tree"
@@ -157,7 +157,7 @@ void test_delete()
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
-		data[i].x = rand();
+		data[i].x = pcg64_random();
 		avl_insert(&t, &data[i].avl);
 	}
 	
@@ -229,8 +229,8 @@ void test_splice()
 	test_t data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
-		data[i].x = rand();
-		data[i + n].x = rand();
+		data[i].x = pcg64_random();
+		data[i + n].x = pcg64_random();
 		avl_insert(&t, &data[i].avl);
 		avl_insert(&s, &data[i+n].avl);
 	}
@@ -265,7 +265,7 @@ void test_for_each()
 	}
 	
 	for (size_t i = 0; i < n; i++)
-		ASSERT_TRUE(data[i].x == (int)i+1, "test_for_each: data was not"
+		ASSERT_TRUE(data[i].x == i+1, "test_for_each: data was not"
 			    " modified.\n");
 }
 
@@ -285,13 +285,13 @@ void test_for_each_range()
 	}
 
 	for (size_t i = 0; i < n/4; i++)
-		ASSERT_TRUE(data[i].x == (int)i, "test_for_each_range: data out"
+		ASSERT_TRUE(data[i].x == i, "test_for_each_range: data out"
 			    " of range (before start) was modified.\n");
 	for (size_t i = n/4; i < n - n/4; i++)
-		ASSERT_TRUE(data[i].x == (int)i+1, "test_for_each_range: data in"
+		ASSERT_TRUE(data[i].x == i+1, "test_for_each_range: data in"
 			    " range was not modified.\n");
 	for (size_t i = n - n/4; i < n; i++)
-		ASSERT_TRUE(data[i].x == (int)i, "test_for_each_range: data out"
+		ASSERT_TRUE(data[i].x == i, "test_for_each_range: data out"
 			    " of range (after end) was modified.\n");
 }
 
@@ -301,7 +301,9 @@ int main(int argc, char **argv)
 {
 	(void)argc;
 	(void)argv;
-	srand(time(NULL));
+
+	seed_rng();
+
 	REGISTER_TEST(test_insert);
 	REGISTER_TEST(test_delete);
 	REGISTER_TEST(test_itterators);
