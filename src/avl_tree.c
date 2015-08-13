@@ -47,22 +47,22 @@
  * changing such low level implementation details is easy.
  */
 
-static inline void set_parent(struct avl_node *node, struct avl_node *parent)
+static void set_parent(struct avl_node *node, struct avl_node *parent)
 {
 	node->parent = parent;
 }
 
-static inline void set_balance(struct avl_node *node, short bf)
+static void set_balance(struct avl_node *node, short bf)
 {
 	node->balance = bf;
 }
 
-static inline struct avl_node *get_parent(struct avl_node *node)
+static struct avl_node *get_parent(struct avl_node *node)
 {
 	return node->parent;
 }
 
-static inline short get_balance(struct avl_node *node)
+static short get_balance(struct avl_node *node)
 {
 	return node->balance;
 }
@@ -71,7 +71,7 @@ static inline short get_balance(struct avl_node *node)
  * Various other helper functions
  */
 
-static inline struct avl_node *closest_child(struct avl_node *n,
+static struct avl_node *closest_child(struct avl_node *n,
 					unsigned short right)
 {
 #ifdef DEBUG
@@ -87,7 +87,7 @@ static inline struct avl_node *closest_child(struct avl_node *n,
 	return i;
 }
 
-static inline unsigned short child_index(struct avl_node *child, struct avl_node *parent)
+static unsigned short child_index(struct avl_node *child, struct avl_node *parent)
 {
 #ifdef DEBUG
 	assert(parent->children[AVL_LEFT] == child
@@ -99,7 +99,7 @@ static inline unsigned short child_index(struct avl_node *child, struct avl_node
 		return AVL_RIGHT;
 }
 
-static inline short dir_to_bf(unsigned short right)
+static short dir_to_bf(unsigned short right)
 {
 	return  right == AVL_RIGHT ? RIGHT_HEAVY : LEFT_HEAVY;
 }
@@ -114,7 +114,7 @@ static inline short dir_to_bf(unsigned short right)
  *  A   C            C   E
  *
  */
-static inline struct avl_node *rotate_single(struct avl_node *root, unsigned short right)
+static struct avl_node *rotate_single(struct avl_node *root, unsigned short right)
 {
 #ifdef DEBUG
 	assert(right == AVL_RIGHT || right == AVL_LEFT);
@@ -176,7 +176,7 @@ static inline struct avl_node *rotate_single(struct avl_node *root, unsigned sho
 	return b; /* return the new root */
 }
 
-static inline struct avl_node *rotate_double(struct avl_node *root, unsigned short right)
+static struct avl_node *rotate_double(struct avl_node *root, unsigned short right)
 {
         unsigned short left = 1 - right;
 	struct avl_node *d = root->children[left]->children[right];
@@ -273,7 +273,7 @@ static inline struct avl_node *rotate_double(struct avl_node *root, unsigned sho
 	/* return the new root */
 }
 
-static inline struct avl_node *rotate(struct avl_head *hd, struct avl_node *root,
+static struct avl_node *rotate(struct avl_head *hd, struct avl_node *root,
 				 unsigned short right)
 {
 	struct avl_node *new_root = get_balance(root->children[1 - right])
