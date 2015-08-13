@@ -61,30 +61,36 @@
 
 #include <stddef.h>
 
-/* avl tree types */
+/** avl tree node */
 struct avl_node {
+        /** parent node */
 	struct avl_node *parent;
-	/* parent node */
+
+        /** 0 is left child, 1 is right child */
 	struct avl_node *children[2];
-	/* 0 is left child, 1 is right child */
+
+        /** balance factor. -1, 0, or 1 */
 	short balance;
-	/* balance factor. -1, 0, or 1 */
+
+        /** where am I in my parent? (0 or 1) */
 	unsigned short cradle;
-	/* where am I in my parent? (0 or 1) */
 };
 
 typedef int (*avl_cmp_t)(void *lhs, void *rhs);
 
+/** metadata/head structure for avl tree */
 struct avl_head {
+        /* pointer to the root node */
 	struct avl_node *root;
-	/* pointer to the root node */
+
+        /* number of nodes in the tree */
 	size_t n_nodes;
-	/* number of nodes in the tree */
+
+        /* less than comparator */
 	avl_cmp_t cmp;
-	/* less than comparator */
+
+        /** offset of the avl node in the enclosing struct */
 	const size_t offset;
-	/* offset of the avl node in the                                                                                   
-	 * enclosing struct */
 };
 
 /**

@@ -12,11 +12,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/* Eric Mueller
- * December 2014
- * avl_tree.c
+/**
+ * \file avl_tree.c
+ *
+ * \author Eric Mueller
  * 
- * Implementation of an avl tree.
+ * \brief Implementation of an avl tree.
  */
 
 #include "avl_tree.h"
