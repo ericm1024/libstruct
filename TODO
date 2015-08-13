@@ -12,7 +12,6 @@ issues:
 
 in progress:
         radix tree (integers)
-        binomial heap
 
 future structures:
 	skip list
