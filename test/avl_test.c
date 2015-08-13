@@ -23,6 +23,7 @@
 
 #include "avl_tree.h"
 #include "test.h"
+#include "util.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <time.h>
@@ -63,18 +64,14 @@ void valid_node(struct avl_head *hd, struct avl_node *n)
 	ASSERT_TRUE(bf == n->balance, "valid_node: bad balance factor.\n");
 
 	if (n->children[0])
-		ASSERT_TRUE(hd->cmp((void *)((uintptr_t)n->children[0] - hd->offset),
-				    (void*)((uintptr_t)n - hd->offset)) == -1,
+		ASSERT_TRUE(hd->cmp(n->children[0], n) == -1,
 			    "valid_node: left child was not less than root.\n");
 	if (n->children[1])
-		ASSERT_TRUE(hd->cmp((void*)((uintptr_t)n->children[1] - hd->offset),
-				    (void*)((uintptr_t)n - hd->offset)) == 1,
+		ASSERT_TRUE(hd->cmp(n->children[1], n) == 1,
 			    "valid_node: right child was not greater than root.\n");
 	if (n->children[0] && n->children[1])
-		ASSERT_TRUE(hd->cmp((void*)((uintptr_t)n->children[0] - hd->offset),
-			      (void*)((uintptr_t)n->children[1] - hd->offset))
-			    == -1, "valid_node: left child was not less than "
-			           "right child.\n");
+		ASSERT_TRUE(hd->cmp(n->children[0], n->children[1]) == -1,
+                            "valid_node: left child > right child.\n");
 	
 	valid_node(hd, n->children[0]);
 	valid_node(hd, n->children[1]);
@@ -87,31 +84,31 @@ void assert_is_valid_tree(struct avl_head *hd)
 	valid_node(hd, hd->root);
 }
 
-void print_node(struct avl_node *n, size_t offset)
+void print_node(struct avl_node *n)
 {
 	if (!n) {
 		printf("-");
 		return;
 	}
 
-	test_t *data = (test_t *)((uintptr_t)n - offset);
+	test_t *data = container_of(n, test_t, avl);
 	printf("(");
-	print_node(n->children[0], offset);
+	print_node(n->children[0]);
 	printf(", %i, ", data->x);
-	print_node(n->children[1], offset);
+	print_node(n->children[1]);
 	printf(")");
 }
 
 void print_tree(struct avl_head *t)
 {
-	print_node(t->root, t->offset);
+	print_node(t->root);
 	printf("\n");
 }
 
-int point_cmp(void *lhs, void *rhs)
+int point_cmp(struct avl_node *lhs, struct avl_node *rhs)
 {
-	int rx = ((test_t*)rhs)->x;
-	int lx = ((test_t*)lhs)->x;
+        int lx = container_of(lhs, test_t, avl)->x;
+	int rx = container_of(rhs, test_t, avl)->x;
 
 	if (lx < rx)
 		return -1;
@@ -128,26 +125,26 @@ int point_cmp(void *lhs, void *rhs)
 
 void test_insert()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
+	AVL_TREE(t, &point_cmp, test_t);
 	test_t data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = rand();
-		avl_insert(&t, (void*)&data[i]);
+		avl_insert(&t, &data[i].avl);
 		assert_is_valid_tree(&t);
 		ASSERT_TRUE(t.n_nodes == (i + 1),
 			    "test_insert: error. n_nodes is wrong.\n");
 	}
 
 	for (size_t i = 0; i < n; i++) {
-		void *e = avl_find(&t, (void*)&data[i]);
-		ASSERT_TRUE( e == &data[i],
+		struct avl_node *e = avl_find(&t, &data[i].avl);
+		ASSERT_TRUE(e == &data[i].avl,
 			"test_basic: error. could not find inserted element.\n");
 	}
 
 	for (size_t i = n; i < 2*n; i++) {
 		data[i].x = rand(); /* initialize to shut up valgrind */
-		void *e = avl_find(&t, (void*)&data[i]);
+		struct avl_node *e = avl_find(&t, &data[i].avl);
 		ASSERT_TRUE(e == NULL,
 			    "test_basic: error. found element in tree"
 			    " that was not inserted.\n");
@@ -156,18 +153,18 @@ void test_insert()
 
 void test_delete()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
+	AVL_TREE(t, &point_cmp, test_t);
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = rand();
-		avl_insert(&t, (void*)&data[i]);
+		avl_insert(&t, &data[i].avl);
 	}
 	
 	for (size_t i = 0; i < n; i++) {
-		avl_delete(&t, (void*)&data[i]);
+		avl_delete(&t, &data[i].avl);
 		assert_is_valid_tree(&t);
-		ASSERT_TRUE(avl_find(&t, (void*)&data[i]) == NULL,
+		ASSERT_TRUE(avl_find(&t, &data[i].avl) == NULL,
 			    "test_basic: error. found element after deleting it.\n");
 		ASSERT_TRUE(t.n_nodes == n - (i + 1),
 			    "test_basic: error. n_nodes is wrong.\n");
@@ -177,65 +174,65 @@ void test_delete()
 /* avl next */
 void test_itterators()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
+	AVL_TREE(t, &point_cmp, test_t);
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
-		avl_insert(&t, (void*)&data[i]);
+		avl_insert(&t, &data[i].avl);
 	}
 
-	ASSERT_TRUE(avl_first(&t) == &data[0], "test_itterators: avl_first did"
+	ASSERT_TRUE(avl_first(&t) == &data[0].avl, "test_itterators: avl_first did"
 		    " not return first element.\n");
-	ASSERT_TRUE(avl_last(&t) == &data[n-1], "test_itterators: avl_last did"
+	ASSERT_TRUE(avl_last(&t) == &data[n-1].avl, "test_itterators: avl_last did"
 		    " not return last element.\n");
 
-	void *node = avl_first(&t);
+	struct avl_node *node = avl_first(&t);
 	for (size_t i = 0; i < n; i++) {
 		ASSERT_FALSE(node == NULL, "test_itterators: got null node"
 			     " when more nodes were expected.\n");
-		ASSERT_TRUE(node == &data[i], "test_itterators: traversed out"
+		ASSERT_TRUE(node == &data[i].avl, "test_itterators: traversed out"
 			    " of order.\n");
 		if (i > 0) {
-			ASSERT_TRUE(avl_prev(&t, node) == &data[i-1],
+			ASSERT_TRUE(avl_prev(node) == &data[i-1].avl,
 				    "test_itterators: avl_prev does not give"
 				    " previous element.\n");
-			ASSERT_TRUE(avl_next(&t, avl_prev(&t, node)) == &data[i],
+			ASSERT_TRUE(avl_next(avl_prev(node)) == &data[i].avl,
 				    "test_itterators: next of prev does not give"
 				    " current node.\n");
 		} else {
 			ASSERT_TRUE(node == avl_first(&t), "test_itterators:"
 				    " first node not equal to avl_first");
-			ASSERT_TRUE(avl_prev(&t, node) == NULL,
+			ASSERT_TRUE(avl_prev(node) == NULL,
 				    "test_itterators: avl_prev of first element"
 				    " does not give NULL.\n");
 		}
 		if (i < n-1)
-			ASSERT_TRUE(avl_prev(&t, avl_next(&t, node)) == &data[i],
+			ASSERT_TRUE(avl_prev(avl_next(node)) == &data[i].avl,
 				    "test_itterators: prev of next does not give"
 				    " current node.\n");
 		else {
-			ASSERT_TRUE(avl_next(&t, node) == NULL, "test_itterators:"
+			ASSERT_TRUE(avl_next(node) == NULL, "test_itterators:"
 				    " next of last nodes does not give null.\n");
 			ASSERT_TRUE(node == avl_last(&t), "test_itterators:"
 				    " last node not equal to avl_last");
 		}
-		node = avl_next(&t, node);
+		node = avl_next(node);
 	}			    
 }
 
 /* avl splice */
 void test_splice()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
-	AVL_TREE(s, &point_cmp, test_t, avl);
+	AVL_TREE(t, &point_cmp, test_t);
+	AVL_TREE(s, &point_cmp, test_t);
 	test_t data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = rand();
 		data[i + n].x = rand();
-		avl_insert(&t, (void*)&data[i]);
-		avl_insert(&s, (void*)&data[i+n]);
+		avl_insert(&t, &data[i].avl);
+		avl_insert(&s, &data[i+n].avl);
 	}
 	avl_splice(&t, &s);
 	
@@ -246,7 +243,7 @@ void test_splice()
 		    " after splicing.\n");
 
 	for (size_t i = 0; i < n*2; i++) {
-		ASSERT_TRUE(avl_find(&t, (void*)&data[i]) == &data[i],
+		ASSERT_TRUE(avl_find(&t, &data[i].avl) == &data[i].avl,
 			    "test_splice: could not find element in target tree"
 			    " after splicing.\n");
 	}
@@ -255,16 +252,16 @@ void test_splice()
 /* avl for each */
 void test_for_each()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
+	AVL_TREE(t, &point_cmp, test_t);
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
-		avl_insert(&t, (void*)&data[i]);
+		avl_insert(&t, &data[i].avl);
 	}
 
 	avl_for_each(&t, i) {
-		((test_t*)i)->x++;
+                container_of(i, test_t, avl)->x++;
 	}
 	
 	for (size_t i = 0; i < n; i++)
@@ -275,16 +272,16 @@ void test_for_each()
 /* avl for each range */
 void test_for_each_range()
 {
-	AVL_TREE(t, &point_cmp, test_t, avl);
+	AVL_TREE(t, &point_cmp, test_t);
 	test_t data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
-		avl_insert(&t, (void*)&data[i]);
+		avl_insert(&t, &data[i].avl);
 	}
 
-	avl_for_each_range(&t, i, (void*)&data[n/4], (void*)&data[n - n/4]) {
-		((test_t*)i)->x++;
+	avl_for_each_range(&t, i, &data[n/4].avl, &data[n - n/4].avl) {
+                container_of(i, test_t, avl)->x++;
 	}
 
 	for (size_t i = 0; i < n/4; i++)

@@ -76,7 +76,7 @@ struct avl_node {
 	unsigned short cradle;
 };
 
-typedef int (*avl_cmp_t)(void *lhs, void *rhs);
+typedef int (*avl_cmp_t)(struct avl_node *lhs, struct avl_node *rhs);
 
 /** metadata/head structure for avl tree */
 struct avl_head {
@@ -88,9 +88,6 @@ struct avl_head {
 
         /* less than comparator */
 	avl_cmp_t cmp;
-
-        /** offset of the avl node in the enclosing struct */
-	const size_t offset;
 };
 
 /**
@@ -101,14 +98,12 @@ struct avl_head {
  *                   function is expected to return -1 when lhs < rhs, 0 when
  *                   lhs == rhs, and 1 when lhs > rhs.
  * \param container  (type) Type of the enclosing container.
- * \param member     (token) Name of the struct avl_node member in container.
  */
-#define AVL_TREE(name, lt, container, member)				\
+#define AVL_TREE(name, lt, container)                                   \
 	struct avl_head name = {                                        \
 		.root = NULL,						\
 		.n_nodes = 0,						\
-		.cmp = (avl_cmp_t)(lt),					\
-		.offset = offsetof(container, member)};
+		.cmp = (avl_cmp_t)(lt) };
 
 /**
  * Insert an element into the tree.
@@ -116,7 +111,7 @@ struct avl_head {
  * \param hd        Pointer to the head of the tree.
  * \param insertee  Pointer to the node to insert.
  */
-void avl_insert(struct avl_head *hd, void *insertee);
+void avl_insert(struct avl_head *hd, struct avl_node *insertee);
 
 /**
  * Find an return an element matching the given element.
@@ -126,7 +121,7 @@ void avl_insert(struct avl_head *hd, void *insertee);
  * \return Pointer to the node being looked for, or NULL if no such node was
  *         found.
  */
-void *avl_find(struct avl_head *hd, void *findee);
+struct avl_node *avl_find(struct avl_head *hd, struct avl_node *findee);
 
 /**
  * Delete an element from the tree.
@@ -134,7 +129,7 @@ void *avl_find(struct avl_head *hd, void *findee);
  * \param hd      Pointer to the head of the tree
  * \param victim  Pointer to the node to remove.
  */
-void avl_delete(struct avl_head *hd, void *victim);
+void avl_delete(struct avl_head *hd, struct avl_node *victim);
 
 /**
  * Get the next (in order) element in the tree.
@@ -142,7 +137,7 @@ void avl_delete(struct avl_head *hd, void *victim);
  * \param elem  Pointer to the element before the desired element.
  * \return Pointer to the next element in the tree.
  */
-void *avl_next(struct avl_head *hd, void *elem);
+struct avl_node *avl_next(struct avl_node *elem);
 
 /**
  * Get the previous (in order) element in the tree.
@@ -150,7 +145,7 @@ void *avl_next(struct avl_head *hd, void *elem);
  * \param elem  Pointer to the element after the desired element.
  * \return Pointer to the next element in the tree.
  */
-void *avl_prev(struct avl_head *hd, void *elem);
+struct avl_node *avl_prev(struct avl_node *elem);
 
 /**
  * Get the in-order first element in the tree.
@@ -158,7 +153,7 @@ void *avl_prev(struct avl_head *hd, void *elem);
  * \param hd  Pointer to the head of the tree.
  * \return Pointer to the first element in the tree.
  */
-void *avl_first(struct avl_head *hd);
+struct avl_node *avl_first(struct avl_head *hd);
 
 /**
  * Get the in order last element in the tree.
@@ -166,7 +161,7 @@ void *avl_first(struct avl_head *hd);
  * \param hd  Pointer to the head of the tree.
  * \return Pointer to the last element in the tree.
  */
-void *avl_last(struct avl_head* hd);
+struct avl_node *avl_last(struct avl_head* hd);
 
 /**
  * Insert all the elements of another avl tree into the avl tree in hd. This
@@ -182,19 +177,19 @@ void avl_splice(struct avl_head *hd, struct avl_head *splicee);
  *
  * \param head       Pointer to the head of the tree to apply the function to.
  * \param iter_name  Name of the loop variable. Raw token. A variable of type
- *                   void * with this name is declared by this macro (not by the
+ *                   struct avl_node * with this name is declared by this macro (not by the
  *                   caller).
  */
-#define avl_for_each(head, iter_name)                           \
-	for (void *iter_name = avl_first(head); iter_name;	\
-	     iter_name = avl_next(head, iter_name))
+#define avl_for_each(head, iter_name)                                   \
+	for (struct avl_node *iter_name = avl_first(head); iter_name;	\
+	     iter_name = avl_next(iter_name))
 
 /**
  * Loop over the elements in the tree in the range [first, last)
  *
  * \param head       Pointer to the head of the tree to apply the function to.
  * \param iter_name  Name of the loop variable. Raw token. A variable of type
- *                   void * with this name is declared by this macro (not by the
+ *                   struct avl_node * with this name is declared by this macro (not by the
  *                   caller).
  * \param first      Pointer to the first element in the tree to apply the
  *                   function to.
@@ -202,8 +197,9 @@ void avl_splice(struct avl_head *hd, struct avl_head *splicee);
  *                   function to. Matching is determined by the return value of
  *                   the tree's acl_cmp_t function.
  */
-#define avl_for_each_range(head, iter_name, first, last)                  \
-	for (void *iter_name = first; (head)->cmp(iter_name, last) != 0;  \
-	     iter_name = avl_next(head, iter_name))
+#define avl_for_each_range(head, iter_name, first, last)                \
+	for (struct avl_node *iter_name = first;                        \
+             (head)->cmp(iter_name, last) != 0;                         \
+	     iter_name = avl_next(iter_name))
 
 #endif /* STRUCT_AVL_TREE_H */

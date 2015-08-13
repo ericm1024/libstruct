@@ -71,16 +71,6 @@ static inline short get_balance(struct avl_node *node)
  * Various other helper functions
  */
 
-static inline struct avl_node *data2node(struct avl_head *hd, void *d)
-{
-	return d ? (struct avl_node *)((uintptr_t)d + hd->offset) : NULL;
-}
-
-static inline void *node2data(struct avl_head *hd, struct avl_node *n)
-{
-	return n ? (void *)((uintptr_t)n - hd->offset) : NULL;
-}
-
 static inline struct avl_node *closest_child(struct avl_node *n,
 					unsigned short right)
 {
@@ -299,27 +289,26 @@ static inline struct avl_node *rotate(struct avl_head *hd, struct avl_node *root
  * http://courses.cs.washington.edu/courses/cse373/06sp/handouts/lecture12.pdf
  * for an explanation of the iterative insetion algorithm
  */
-void avl_insert(struct avl_head *hd, void *insertee)
+void avl_insert(struct avl_head *hd, struct avl_node *insertee)
 {
 #ifdef DEBUG
 	assert(hd);
 #endif
 	if (!insertee)
 		return;
-	struct avl_node *in = data2node(hd, insertee);
 
 	/* initialize the node with sane values before we do anything with it */
-	in->children[AVL_RIGHT] = NULL;
-	in->children[AVL_LEFT] = NULL;
-	set_parent(in, NULL);
-	set_balance(in, 0);
+	insertee->children[AVL_RIGHT] = NULL;
+	insertee->children[AVL_LEFT] = NULL;
+	set_parent(insertee, NULL);
+	set_balance(insertee, 0);
 
 	/* find where we're going to insert in */
 	struct avl_node **where = &hd->root;
 	struct avl_node *parent = *where;
 	while (*where) {
 		parent = *where;
-		int cmp = hd->cmp(insertee, node2data(hd, *where));
+		int cmp = hd->cmp(insertee, *where);
 		if (cmp == -1)
 			where = &((*where)->children[AVL_LEFT]);
 		else if (cmp == 1)
@@ -334,12 +323,12 @@ void avl_insert(struct avl_head *hd, void *insertee)
 	}
 
 	/* insert 'in' */
-	*where = in;
-	set_parent(in, parent);
+	*where = insertee;
+	set_parent(insertee, parent);
 	hd->n_nodes++;
 
 	/* traverse back until we hit the node in need of rebalancing */
-	struct avl_node *child = in;
+	struct avl_node *child = insertee;
 	unsigned short right;
 	short bal;
 	while (parent) {
@@ -363,11 +352,10 @@ void avl_insert(struct avl_head *hd, void *insertee)
 	}
 }
 
-void avl_delete(struct avl_head *hd, void *deletee)
+void avl_delete(struct avl_head *hd, struct avl_node *victim)
 {
-	if (!deletee)
+	if (!victim)
 		return;
-	struct avl_node *victim = data2node(hd, deletee);
 	struct avl_node *path;
 	struct avl_node *tmp;
 	struct avl_node *child;
@@ -472,20 +460,20 @@ void avl_delete(struct avl_head *hd, void *deletee)
 }
 
 
-void *avl_find(struct avl_head *hd, void *findee)
+struct avl_node *avl_find(struct avl_head *hd, struct avl_node *findee)
 {
 	if (!findee)
 		return NULL;
 	
 	struct avl_node *n = hd->root;
 	while (n) {
-		int cmp = hd->cmp(findee, node2data(hd,n));
+		int cmp = hd->cmp(findee, n);
 		switch (cmp) {
 		case -1:
 			n = n->children[AVL_LEFT];
 			break;
 		case 0:
-			return node2data(hd, n);
+			return n;
 		case 1:
 			n = n->children[AVL_RIGHT];
 			break;
@@ -496,61 +484,60 @@ void *avl_find(struct avl_head *hd, void *findee)
 	return NULL;
 }
 
-
-void *avl_next(struct avl_head *hd, void *elem)
+struct avl_node *avl_next(struct avl_node *elem)
 {
 	if (!elem)
 		return NULL;
 	
-	struct avl_node *n = data2node(hd, elem);
+	struct avl_node *n = elem;
 	if (n->children[AVL_RIGHT])
-		return node2data(hd, closest_child(n, AVL_RIGHT));
+		return closest_child(n, AVL_RIGHT);
 	else {
 		struct avl_node *prev = NULL;
 		while (n && prev == n->children[AVL_RIGHT]) {
 			prev = n;
 			n = get_parent(n);
 		}
-		return node2data(hd, n);
+		return n;
 	}
 }
 
-void *avl_prev(struct avl_head *hd, void *elem)
+struct avl_node *avl_prev(struct avl_node *elem)
 {
 	if (!elem)
 		return NULL;
 	
-	struct avl_node *n = data2node(hd, elem);
+	struct avl_node *n = elem;
 	if (n->children[AVL_LEFT])
-		return node2data(hd, closest_child(n, AVL_LEFT));
+		return closest_child(n, AVL_LEFT);
 	else {
 		struct avl_node *prev = NULL;
 		while (n && prev == n->children[AVL_LEFT]) {
 			prev = n;
 			n = get_parent(n);
 		}
-		return node2data(hd, n);
+		return n;
 	}
 }
 
-void *avl_first(struct avl_head *hd)
+struct avl_node *avl_first(struct avl_head *hd)
 {
 	if (!hd->root)
 		return NULL;
 	struct avl_node *first = hd->root;
 	while (first->children[AVL_LEFT])
 		first = first->children[AVL_LEFT];
-	return node2data(hd, first);
+	return first;
 }
 
-void *avl_last(struct avl_head *hd)
+struct avl_node *avl_last(struct avl_head *hd)
 {
 	if (!hd->root)
 		return NULL;
 	struct avl_node *last = hd->root;
 	while (last->children[AVL_RIGHT])
 		last = last->children[AVL_RIGHT];
-	return node2data(hd, last);
+	return last;
 }
 
 void avl_splice(struct avl_head *hd, struct avl_head *splicee)
@@ -558,9 +545,8 @@ void avl_splice(struct avl_head *hd, struct avl_head *splicee)
 	if (!splicee->root)
 		return;
 	while (splicee->root) {
-		void *n = node2data(splicee, splicee->root);
+		struct avl_node *n = splicee->root;
 		avl_delete(splicee, n);
 		avl_insert(hd, n);
 	}
 }
-
