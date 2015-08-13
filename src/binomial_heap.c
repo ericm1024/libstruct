@@ -179,6 +179,7 @@ binomial_heap_pop(struct binomial_heap *restrict heap)
         /* update the heap metadada */
         heap->bh_min = new_min;
         heap->bh_elems--;
+        assert(heap->bh_min != min);
 
         return min;
 }
@@ -228,23 +229,30 @@ node_swap_with_child(struct binomial_heap *restrict heap,
                      struct binomial_tree_node *restrict child)
 {
         assert(child->btn_parent == node);
-        
-        /* node becomes child's child, child gets node's parnet */
+
+        /* delete node and child from their sibling lists */
+        list_delete(&node->btn_children, child);
+        if (node->btn_parent)
+                list_delete(&node->btn_parent->btn_children, node);
+
+        /* reparent node and child */
         child->btn_parent = node->btn_parent;
         node->btn_parent = child;
 
-        /* we can trivially swap the other members */
-        swap_t(struct list_head, node->btn_children, child->btn_children);
-        swap_t(struct list, node->btn_link, child->btn_link);
-
-        /* point children at their parent */
+        /* point all children at new parents */
         list_for_each(&child->btn_children, struct binomial_tree_node, n)
-                n->btn_parent = child;
-        list_for_each(&node->btn_children, struct binomial_tree_node, n)
                 n->btn_parent = node;
-        
-        /* if child became a root, denote that in the heap's array */
-        if (!child->btn_parent)
+        list_for_each(&node->btn_children, struct binomial_tree_node, n)
+                n->btn_parent = child;
+
+        /* swap list heads in node and child */
+        list_headswap(&node->btn_children, &child->btn_children);
+
+        /* re-add node and child to their parent lists */
+        list_push_back(&child->btn_children, node);
+        if (child->btn_parent)
+                list_push_back(&child->btn_parent->btn_children, child);
+        else
                 heap->bh_trees[node_order(child)] = child;
 }
 
@@ -259,9 +267,6 @@ void binomial_heap_rekey(struct binomial_heap *restrict heap,
                 if (!parent || !node_lt(heap, node, parent))
                         break;
 
-                printf("node is %p, order is %lu, parent is %p\n",
-                       (void*)node, node_order(node), (void*)parent);
-                
                 node_swap_with_child(heap, parent, node);
         }
 

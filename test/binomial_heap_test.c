@@ -18,6 +18,10 @@
  * \author Eric Mueller
  *
  * \brief Tests for a binomial heap.
+ *
+ * bug:
+ *   peaked element was out of order
+ *   expcted 1995149855911362, got 0, i is 1
  */
 
 #include "binomial_heap.h"
@@ -27,8 +31,7 @@
 
 #include <stdbool.h>
 
-static unsigned long test_size = 10000;
-
+static unsigned long test_size = 10;
 
 /* data structure used for test heaps */
 struct foo {
@@ -48,6 +51,36 @@ int foo_cmp(const struct binomial_tree_node *lhs,
                 return 1;
         else
                 return 0;
+}
+
+static void binomial_tree_print(const struct binomial_tree_node *tree)
+{
+        struct foo *tmp;
+        if (!tree)
+                return;
+
+        tmp = container_of(tree, struct foo, node);
+        printf("(%lu", tmp->val);
+
+        list_for_each(&tree->btn_children, struct binomial_tree_node, n) {
+                printf(", ");
+                binomial_tree_print(n);
+        }
+        printf(")");
+}
+
+void binomial_heap_print(const struct binomial_heap *heap)
+{
+        unsigned long i;
+
+        printf("heap entries: %lu\n", heap->bh_elems);
+        for (i = 0; i < BINOMIAL_HEAP_MAX_TREES; i++) {
+                if (!heap->bh_trees[i])
+                        continue;
+                printf("tree %lu: ", i);
+                binomial_tree_print(heap->bh_trees[i]);
+                printf("\n");
+        }
 }
 
 /* count the number of entries in a tree */
@@ -155,13 +188,13 @@ void init_heap(struct binomial_heap *heap, unsigned long size,
                 struct foo *elem = malloc(sizeof *elem);
                 struct foo *repeat = malloc(sizeof *repeat);
                 ASSERT_TRUE(elem && repeat, "malloc barfed\n");
-                
-                elem->val = pcg64_random();
+
+                elem->val = pcg64_random() % 1024;
                 repeat->val = elem->val;
-                
+
                 binomial_heap_insert(heap, &elem->node);
                 binomial_heap_insert(heap, &repeat->node);
-                
+
                 (*values)[values_idx++] = elem->val;
                 (*values)[values_idx++] = repeat->val;
         }
@@ -170,7 +203,7 @@ void init_heap(struct binomial_heap *heap, unsigned long size,
         for (unsigned long i = 0; i < size - (2 * (size/10)); i++) {
                 struct foo *elem = malloc(sizeof *elem);
                 ASSERT_TRUE(elem, "malloc barfed\n");
-                elem->val = pcg64_random();
+                elem->val = pcg64_random() % 1024;
                 binomial_heap_insert(heap, &elem->node);
 
                 (*values)[values_idx++] = elem->val;
@@ -265,6 +298,7 @@ void test_peak()
         init_heap(&test, test_size, &values);
 
         for (unsigned long i = 0; i < test_size; i++) {
+                binomial_heap_print(&test);
                 n = binomial_heap_peak(&test);
                 struct foo *fp = container_of(n, struct foo, node);
                 
@@ -272,6 +306,9 @@ void test_peak()
                             "been more elements\n");
                 ASSERT_TRUE(fp->val == values[i],
                             "peaked element was out of order\n");
+                if (fp->val != values[i])
+                        printf("expcted %lu, got %lu, i is %lu\n", values[i],
+                               fp->val, i);
 
                 ASSERT_TRUE(test.bh_elems == test_size - i,
                             "peak modified heap\n");
@@ -355,11 +392,12 @@ void test_rekey()
                                                    : test_size;
         for (unsigned long i = 0; i < nr_rekeys; i++) {
                 unsigned long idx = pcg64_random() % test_size;
-                foo_vals[idx].val = pcg64_random();
+                uint64_t new = pcg64_random();
+                foo_vals[idx].val = new;
                 binomial_heap_rekey(&test, &foo_vals[idx].node);
         }
         assert_heap_valid(&test);
-        destroy_heap(&test);
+        free(foo_vals);
 }
 
 int main(int argc, char **argv)
@@ -368,12 +406,12 @@ int main(int argc, char **argv)
 	(void)argv;
         seed_rng();
 
-        REGISTER_TEST(test_init);
-        REGISTER_TEST(test_insert);
-        REGISTER_TEST(test_pop);
+        //REGISTER_TEST(test_init);
+        //REGISTER_TEST(test_insert);
+        //REGISTER_TEST(test_pop);
         REGISTER_TEST(test_peak);
-        REGISTER_TEST(test_merge);
-        REGISTER_TEST(test_rekey);
+        //REGISTER_TEST(test_merge);
+        //REGISTER_TEST(test_rekey);
 	
 	return run_all_tests();
 }
