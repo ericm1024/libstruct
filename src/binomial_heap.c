@@ -65,21 +65,21 @@
  * return value signifies greater than.
  */
 static inline bool node_lt(const struct binomial_heap *restrict heap,
-                           const struct binomial_tree_node *restrict lhs,
-                           const struct binomial_tree_node *restrict rhs)
+                           const struct binom_node *restrict lhs,
+                           const struct binom_node *restrict rhs)
 {
         assert(lhs && rhs);
         return heap->bh_cmp(lhs, rhs) < 0;
 }
 
-static inline void node_init(struct binomial_tree_node *node)
+static inline void node_init(struct binom_node *node)
 {
         node->btn_parent = NULL;
         node->btn_children = (struct list_head) {
                                .first = NULL,
                                .last = NULL,
                                .length = 0,
-                               .offset = offsetof(struct binomial_tree_node,
+                               .offset = offsetof(struct binom_node,
                                                   btn_link) };
 
         node->btn_link = (struct list) {
@@ -88,17 +88,17 @@ static inline void node_init(struct binomial_tree_node *node)
 }
 
 static inline unsigned long
-node_order(const struct binomial_tree_node *node)
+node_order(const struct binom_node *node)
 {
         return node->btn_children.length;
 }
 
-static inline struct binomial_tree_node *
+static inline struct binom_node *
 tree_merge(const struct binomial_heap *heap,
-           struct binomial_tree_node *tree,
-           struct binomial_tree_node *other)
+           struct binom_node *tree,
+           struct binom_node *other)
 {
-        struct binomial_tree_node *parent, *child;
+        struct binom_node *parent, *child;
         assert(tree != other);
         assert(node_order(tree) == node_order(other));
 
@@ -127,7 +127,7 @@ tree_merge(const struct binomial_heap *heap,
  * the set of trees that make up the heap.
  */
 static inline void heap_coalesce(struct binomial_heap *restrict heap,
-                                 struct binomial_tree_node *restrict tree)
+                                 struct binom_node *restrict tree)
 {        
         for (unsigned i = node_order(tree); ; i++) {
                 if (!heap->bh_trees[i]) {
@@ -140,11 +140,11 @@ static inline void heap_coalesce(struct binomial_heap *restrict heap,
         }
 }
 
-struct binomial_tree_node *
+struct binom_node *
 binomial_heap_pop(struct binomial_heap *restrict heap)
 {
-        struct binomial_tree_node *min = heap->bh_min;
-        struct binomial_tree_node *subtree;
+        struct binom_node *min = heap->bh_min;
+        struct binom_node *subtree;
 
         if (!min)
                 return NULL;
@@ -166,9 +166,9 @@ binomial_heap_pop(struct binomial_heap *restrict heap)
         }
 
         /* find the new minimum node among all the trees */
-        struct binomial_tree_node *new_min = NULL;
+        struct binom_node *new_min = NULL;
         for (unsigned i = 0; i < BINOMIAL_HEAP_MAX_TREES; i++) {
-                struct binomial_tree_node *tree = heap->bh_trees[i];
+                struct binom_node *tree = heap->bh_trees[i];
                 if (tree && (!new_min || node_lt(heap, tree, new_min)))
                         new_min = tree;
         }
@@ -182,7 +182,7 @@ binomial_heap_pop(struct binomial_heap *restrict heap)
 }
 
 void binomial_heap_insert(struct binomial_heap *restrict heap,
-                          struct binomial_tree_node *restrict insertee)
+                          struct binom_node *restrict insertee)
 {
         /* sanitize the new node */
         node_init(insertee);
@@ -201,7 +201,7 @@ void binomial_heap_merge(struct binomial_heap *restrict heap,
 {
         /* merge all the trees of victim into heap */
         for (unsigned i = 0; i < BINOMIAL_HEAP_MAX_TREES; i++) {
-                struct binomial_tree_node *tree = victim->bh_trees[i];
+                struct binom_node *tree = victim->bh_trees[i];
                 if (tree)
                         heap_coalesce(heap, tree);
                 victim->bh_trees[i] = NULL;
@@ -222,8 +222,8 @@ void binomial_heap_merge(struct binomial_heap *restrict heap,
 
 static inline void
 node_swap_with_child(struct binomial_heap *restrict heap,
-                     struct binomial_tree_node *restrict node,
-                     struct binomial_tree_node *restrict child)
+                     struct binom_node *restrict node,
+                     struct binom_node *restrict child)
 {
         assert(child->btn_parent == node);
 
@@ -237,9 +237,9 @@ node_swap_with_child(struct binomial_heap *restrict heap,
         node->btn_parent = child;
 
         /* point all children at new parents */
-        list_for_each(&child->btn_children, struct binomial_tree_node, n)
+        list_for_each(&child->btn_children, struct binom_node, n)
                 n->btn_parent = node;
-        list_for_each(&node->btn_children, struct binomial_tree_node, n)
+        list_for_each(&node->btn_children, struct binom_node, n)
                 n->btn_parent = child;
 
         /* swap list heads in node and child */
@@ -254,11 +254,11 @@ node_swap_with_child(struct binomial_heap *restrict heap,
 }
 
 void binomial_heap_rekey(struct binomial_heap *restrict heap,
-                         struct binomial_tree_node *restrict node)
+                         struct binom_node *restrict node)
 {
         /* move the node upwards, if we need to */
         for (;;) {
-                struct binomial_tree_node *parent = node->btn_parent;
+                struct binom_node *parent = node->btn_parent;
 
                 /* no parent or node >= parent? we're done */
                 if (!parent || !node_lt(heap, node, parent))
@@ -269,8 +269,8 @@ void binomial_heap_rekey(struct binomial_heap *restrict heap,
 
         /* move the node downards, if we need to */
         for (;;) {
-                struct binomial_tree_node *min_child = NULL;
-                list_for_each(&node->btn_children, struct binomial_tree_node,
+                struct binom_node *min_child = NULL;
+                list_for_each(&node->btn_children, struct binom_node,
                               child) {
                         if (!min_child || node_lt(heap, child, min_child))
                                 min_child = child;

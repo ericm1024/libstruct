@@ -36,11 +36,11 @@ static unsigned long test_size = 1000000;
 /* data structure used for test heaps */
 struct foo {
         unsigned long val;
-        struct binomial_tree_node node;
+        struct binom_node node;
 };
 
-int foo_cmp(const struct binomial_tree_node *lhs,
-            const struct binomial_tree_node *rhs)
+int foo_cmp(const struct binom_node *lhs,
+            const struct binom_node *rhs)
 {
         const struct foo *foo_lhs = container_of(lhs, struct foo, node);
         const struct foo *foo_rhs = container_of(rhs, struct foo, node);
@@ -54,14 +54,14 @@ int foo_cmp(const struct binomial_tree_node *lhs,
 }
 
 /* count the number of entries in a tree */
-unsigned long count_tree_entries(struct binomial_tree_node *tree)
+unsigned long count_tree_entries(struct binom_node *tree)
 {
         if (tree->btn_children.length == 0)
                 return 1;
 
         unsigned long entries = 0;
         
-        list_for_each(&tree->btn_children, struct binomial_tree_node, n) 
+        list_for_each(&tree->btn_children, struct binom_node, n) 
                 entries += count_tree_entries(n);
 
         return entries + 1;
@@ -87,7 +87,7 @@ void assert_heap_empty(const struct binomial_heap *heap)
 }
 
 /* validate a binomial tree */
-void assert_tree_valid(const struct binomial_tree_node *tree, unsigned order)
+void assert_tree_valid(const struct binom_node *tree, unsigned order)
 {
         ASSERT_TRUE(tree->btn_children.length == order,
                     "length of tree's child list was wrong\n");
@@ -102,7 +102,7 @@ void assert_tree_valid(const struct binomial_tree_node *tree, unsigned order)
         unsigned *children = calloc(order, sizeof *children);
         ASSERT_TRUE(children, "calloc barfed in assert_tree_valid\n");
         
-        list_for_each(&tree->btn_children, struct binomial_tree_node, n) {
+        list_for_each(&tree->btn_children, struct binom_node, n) {
                 unsigned child_order = n->btn_children.length;
                 ASSERT_FALSE(children[child_order],
                             "found child of duplicate order\n");
@@ -169,7 +169,7 @@ void init_heap(struct binomial_heap *heap, unsigned long size,
 
 void destroy_heap(struct binomial_heap *heap)
 {
-        struct binomial_tree_node *node = NULL;
+        struct binom_node *node = NULL;
         struct foo *fp;
         for (;;) {
                 node = binomial_heap_pop(heap);
@@ -218,7 +218,7 @@ void test_insert()
 void test_pop()
 {
         unsigned long *values;
-        struct binomial_tree_node *n;
+        struct binom_node *n;
         BINOMIAL_HEAP(test, foo_cmp);
         init_heap(&test, test_size, &values);
 
@@ -247,7 +247,7 @@ void test_pop()
 void test_peak()
 {
         unsigned long *values;
-        struct binomial_tree_node *n;
+        struct binom_node *n;
         BINOMIAL_HEAP(test, foo_cmp);
         init_heap(&test, test_size, &values);
 
@@ -313,7 +313,7 @@ void test_merge()
 
         /* validate the resulting heap */
         for (unsigned long i = 0; i < 2*test_size; i++) {
-                struct binomial_tree_node *n = binomial_heap_pop(&victim);
+                struct binom_node *n = binomial_heap_pop(&victim);
                 struct foo *fp = container_of(n, struct foo, node);
                 
                 ASSERT_TRUE(n, "pop returned NULL when there should have "

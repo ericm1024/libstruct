@@ -44,9 +44,9 @@
  *
  * All these members are private and you should NEVER TOUCH THEM.
  */ 
-struct binomial_tree_node {
+struct binom_node {
         /** The parent node of this node. */
-        struct binomial_tree_node *btn_parent;
+        struct binom_node *btn_parent;
 
         /** The list head for the child list starting with this node */
         struct list_head btn_children;
@@ -77,24 +77,24 @@ struct binomial_heap {
          * should behave as a min heap. Reverse this behavior if you want a
          * max heap.
          */
-        int (*bh_cmp)(const struct binomial_tree_node *lhs,
-                      const struct binomial_tree_node *rhs);
+        int (*bh_cmp)(const struct binom_node *lhs,
+                      const struct binom_node *rhs);
 
         /** pointer to min element of the tree. private data */
-        struct binomial_tree_node *bh_min;
+        struct binom_node *bh_min;
         
         /**
          * array of binomial trees that make up the heap. tree at index
          * i has order i (i.e. has 2^i nodes)
          */
-        struct binomial_tree_node *bh_trees[BINOMIAL_HEAP_MAX_TREES];
+        struct binom_node *bh_trees[BINOMIAL_HEAP_MAX_TREES];
 };
 
 /**
  * \brief declare and define a binomial heap
  * \param name    (token) the name of the heap to declare
  * \param type    (type) the type of the structure this heap will contain
- * \param member  (token) the name of the struct binomial_tree_node within
+ * \param member  (token) the name of the struct binom_node within
  *                type.
  * \param cmp     comparator function as described in struct binomial_heap
  */
@@ -112,7 +112,7 @@ struct binomial_heap {
  * \return the minimum element in the heap, or NULL if the heap is empty.
  * \note completes in \Theta(log(n)) time
  */
-struct binomial_tree_node *
+struct binom_node *
 binomial_heap_pop(struct binomial_heap *restrict heap);
 
 /**
@@ -137,7 +137,7 @@ binomial_heap_pop(struct binomial_heap *restrict heap);
  *
  * Consider yourself warned.
  */
-static inline struct binomial_tree_node *
+static inline struct binom_node *
 binomial_heap_peak(const struct binomial_heap *restrict heap)
 {
         return heap->bh_min;
@@ -151,7 +151,7 @@ binomial_heap_peak(const struct binomial_heap *restrict heap)
  * \note runtime is worst case O(log(n)) and average case \Theta(1)
  */
 void binomial_heap_insert(struct binomial_heap *restrict heap,
-                          struct binomial_tree_node *restrict insertee);
+                          struct binom_node *restrict insertee);
 
 /**
  * \brief Merge two heaps.
@@ -170,6 +170,6 @@ void binomial_heap_merge(struct binomial_heap *restrict heap,
  * \note Runtime is \Theta(log(n)^2)
  */
 void binomial_heap_rekey(struct binomial_heap *restrict heap,
-                         struct binomial_tree_node *restrict node);
+                         struct binom_node *restrict node);
 
 #endif /* STRUCT_BINOMIAL_HEAP_H */
