@@ -20,6 +20,9 @@
  * \brief Small set of generic utilities (random numbers, etc)
  */
 
+#ifndef STRUCT_UTIL_H
+#define STRUCT_UTIL_H
+
 #include "pcg_variants.h"
 
 #include <errno.h>
@@ -68,3 +71,5 @@ static inline bool seed_rng()
                 (__a) = (__b);                          \
                 (__b) = __swap_tmp;                     \
         } while (0);
+
+#endif /* STRUCT_UTIL_H */
