@@ -19,7 +19,17 @@
  * 
  * \brief Header file for a binomial heap.
  *
- * \detail TODO
+ * \detail Binomial heaps implement a priority queue and support the following
+ * operations. (Let n be the number of nodes in the heap).
+ *
+ *     - insert, in worst case log(n) time and average case constant time
+ *     - pop, in log(n) time.
+ *     - peak, in constant time.
+ *     - merge (two heaps), in log(n) time. (here n is the number of elements
+ *       in the larger heap)
+ *     - rekey (change the value of a node) in log(n)^2 time.
+ *
+ * Heaps should be declared with the BINOMIAL_HEAP macro.
  */
 
 #ifndef STRUCT_BINOMIAL_HEAP_H
@@ -30,11 +40,18 @@
 
 /**
  * intrusive binomial tree node. one of these should be in the enclosing
- * data structure (i.e. the structure that you want to be in a heap)
+ * data structure (i.e. the structure that you want to be in a heap).
+ *
+ * All these members are private and you should NEVER TOUCH THEM.
  */ 
 struct binomial_tree_node {
+        /** The parent node of this node. */
         struct binomial_tree_node *btn_parent;
+
+        /** The list head for the child list starting with this node */
         struct list_head btn_children;
+
+        /** linkage between sibling nodes */
         struct list btn_link;
 };
 
@@ -56,7 +73,9 @@ struct binomial_heap {
 
         /**
          * comparator function for heap elements. should return < 0 for
-         * lhs < rhs, 0 for lhs == rhs, and > 0 for lhs > rhs
+         * lhs < rhs, 0 for lhs == rhs, and > 0 for lhs > rhs if the heap
+         * should behave as a min heap. Reverse this behavior if you want a
+         * max heap.
          */
         int (*bh_cmp)(const struct binomial_tree_node *lhs,
                       const struct binomial_tree_node *rhs);
@@ -101,7 +120,22 @@ binomial_heap_pop(struct binomial_heap *restrict heap);
  * \param heap   The heap.
  * 
  * \return the minimum element in the heap, or NULL if the heap is empty
- * \note completes in \Theta(1) time
+ *
+ * \note Completes in \Theta(1) time.
+ *
+ * \note Be aware that the node returned by peak need not be the same node
+ * returned by pop. For example, if multiple nodes have the same value, pop
+ * will remove whichever one happens to be at the root of a tree, while peak
+ * will return whichever one was inserted first. It would be nice to avoid this
+ * issue, but it would entail a minor increas in the complexity of insert/pop.
+ * What this all means is that the following WILL CAUSE MEMORY CORRUPTION:
+ *
+ *     node = binomial_heap_peak(heap);
+ *     // do stuff with node
+ *     binomial_heap_pop(heap);
+ *     free(node);
+ *
+ * Consider yourself warned.
  */
 static inline struct binomial_tree_node *
 binomial_heap_peak(const struct binomial_heap *restrict heap)
@@ -133,6 +167,7 @@ void binomial_heap_merge(struct binomial_heap *restrict heap,
  * \brief Tell the heap that the key of a node has changed.
  * \param heap   The heap.
  * \param node   The node whose key has changed.
+ * \note Runtime is \Theta(log(n)^2)
  */
 void binomial_heap_rekey(struct binomial_heap *restrict heap,
                          struct binomial_tree_node *restrict node);

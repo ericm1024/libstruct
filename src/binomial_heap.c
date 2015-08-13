@@ -25,9 +25,9 @@
  * definition here.
  *
  * dfn. A binomial tree of order k is a node with k children wich are
- * binomial trees with order 0...k-1. It follows that a binomial tree
+ * binomial trees, one each of oder 0...k-1. It follows that a binomial tree
  * of order k has 2^k elements. All children have value <= their parent
- * (as one would expect with a heap).
+ * (as one would expect with a min heap).
  *
  * The fundamental operation on a binomal tree is a merge. To merge 2 trees
  * of order k (they must be the same order), we just add the greater of the
@@ -130,7 +130,6 @@ static inline void heap_coalesce(struct binomial_heap *restrict heap,
                                  struct binomial_tree_node *restrict tree)
 {        
         for (unsigned i = node_order(tree); ; i++) {
-                assert(node_order(tree) == i);
                 if (!heap->bh_trees[i]) {
                         heap->bh_trees[i] = tree;
                         break;
@@ -156,8 +155,6 @@ binomial_heap_pop(struct binomial_heap *restrict heap)
          */
         while (min->btn_parent)
                 min = min->btn_parent;
-        
-        assert(heap->bh_trees[node_order(min)] == min);
         heap->bh_trees[node_order(min)] = NULL;
         
         /* coalesce all the subtrees of min back into the heap */
