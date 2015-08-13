@@ -31,10 +31,10 @@
 
 typedef struct {
 	int x;
-	avl_node_t avl;
+	struct avl_node avl;
 } test_t;
 
-size_t count_nodes(avl_node_t *n)
+size_t count_nodes(struct avl_node *n)
 {
 	if (!n)
 		return 0;
@@ -43,7 +43,7 @@ size_t count_nodes(avl_node_t *n)
 			+ count_nodes(n->children[1]);
 }
 
-size_t height(avl_node_t *n)
+size_t height(struct avl_node *n)
 {
 	if (!n)
 		return 0;
@@ -54,7 +54,7 @@ size_t height(avl_node_t *n)
 	}
 }
 
-void valid_node(avl_head_t *hd, avl_node_t *n)
+void valid_node(struct avl_head *hd, struct avl_node *n)
 {
 	if (!n)
 		return;
@@ -80,14 +80,14 @@ void valid_node(avl_head_t *hd, avl_node_t *n)
 	valid_node(hd, n->children[1]);
 }
 
-void assert_is_valid_tree(avl_head_t *hd)
+void assert_is_valid_tree(struct avl_head *hd)
 {
 	ASSERT_TRUE(hd->n_nodes == count_nodes(hd->root),
 		"is_valid_avl_tree: hd->n_nodes is wrong.\n");
 	valid_node(hd, hd->root);
 }
 
-void print_node(avl_node_t *n, size_t offset)
+void print_node(struct avl_node *n, size_t offset)
 {
 	if (!n) {
 		printf("-");
@@ -102,7 +102,7 @@ void print_node(avl_node_t *n, size_t offset)
 	printf(")");
 }
 
-void print_tree(avl_head_t *t)
+void print_tree(struct avl_head *t)
 {
 	print_node(t->root, t->offset);
 	printf("\n");

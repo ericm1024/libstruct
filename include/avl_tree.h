@@ -28,12 +28,12 @@
  *
  * This implementation is meant to be used as a structure member and not a
  * container. In other words, if you want your struct foo to be organized in an
- * avl tree, add a field of type avl_node_t to your struct declaration, ex:
+ * avl tree, add a field of type struct avl_node to your struct declaration, ex:
  *
  *   struct foo {
  *             .
  *             .
- *           avl_node_t avl_link;
+ *           struct avl_node avl_link;
  *             .
  *             .
  *   };
@@ -62,7 +62,7 @@
 #include <stddef.h>
 
 /* avl tree types */
-typedef struct avl_node {
+struct avl_node {
 	struct avl_node *parent;
 	/* parent node */
 	struct avl_node *children[2];
@@ -71,12 +71,12 @@ typedef struct avl_node {
 	/* balance factor. -1, 0, or 1 */
 	unsigned short cradle;
 	/* where am I in my parent? (0 or 1) */
-} avl_node_t;
+};
 
 typedef int (*avl_cmp_t)(void *lhs, void *rhs);
 
-typedef struct avl_head {
-	avl_node_t *root;
+struct avl_head {
+	struct avl_node *root;
 	/* pointer to the root node */
 	size_t n_nodes;
 	/* number of nodes in the tree */
@@ -85,7 +85,7 @@ typedef struct avl_head {
 	const size_t offset;
 	/* offset of the avl node in the                                                                                   
 	 * enclosing struct */
-} avl_head_t;
+};
 
 /**
  * \brief Declare an avl tree head.
@@ -95,10 +95,10 @@ typedef struct avl_head {
  *                   function is expected to return -1 when lhs < rhs, 0 when
  *                   lhs == rhs, and 1 when lhs > rhs.
  * \param container  (type) Type of the enclosing container.
- * \param member     (token) Name of the avl_node_t member in container.
+ * \param member     (token) Name of the struct avl_node member in container.
  */
 #define AVL_TREE(name, lt, container, member)				\
-	avl_head_t name = {						\
+	struct avl_head name = {                                        \
 		.root = NULL,						\
 		.n_nodes = 0,						\
 		.cmp = (avl_cmp_t)(lt),					\
@@ -110,7 +110,7 @@ typedef struct avl_head {
  * \param hd        Pointer to the head of the tree.
  * \param insertee  Pointer to the node to insert.
  */
-extern void avl_insert(avl_head_t *hd, void *insertee);
+extern void avl_insert(struct avl_head *hd, void *insertee);
 
 /**
  * Find an return an element matching the given element.
@@ -120,7 +120,7 @@ extern void avl_insert(avl_head_t *hd, void *insertee);
  * \return Pointer to the node being looked for, or NULL if no such node was
  *         found.
  */
-extern void *avl_find(avl_head_t *hd, void *findee);
+extern void *avl_find(struct avl_head *hd, void *findee);
 
 /**
  * Delete an element from the tree.
@@ -128,7 +128,7 @@ extern void *avl_find(avl_head_t *hd, void *findee);
  * \param hd      Pointer to the head of the tree
  * \param victim  Pointer to the node to remove.
  */
-extern void avl_delete(avl_head_t *hd, void *victim);
+extern void avl_delete(struct avl_head *hd, void *victim);
 
 /**
  * Get the next (in order) element in the tree.
@@ -136,7 +136,7 @@ extern void avl_delete(avl_head_t *hd, void *victim);
  * \param elem  Pointer to the element before the desired element.
  * \return Pointer to the next element in the tree.
  */
-extern void *avl_next(avl_head_t *hd, void *elem);
+extern void *avl_next(struct avl_head *hd, void *elem);
 
 /**
  * Get the previous (in order) element in the tree.
@@ -144,7 +144,7 @@ extern void *avl_next(avl_head_t *hd, void *elem);
  * \param elem  Pointer to the element after the desired element.
  * \return Pointer to the next element in the tree.
  */
-extern void *avl_prev(avl_head_t *hd, void *elem);
+extern void *avl_prev(struct avl_head *hd, void *elem);
 
 /**
  * Get the in-order first element in the tree.
@@ -152,7 +152,7 @@ extern void *avl_prev(avl_head_t *hd, void *elem);
  * \param hd  Pointer to the head of the tree.
  * \return Pointer to the first element in the tree.
  */
-extern void *avl_first(avl_head_t *hd);
+extern void *avl_first(struct avl_head *hd);
 
 /**
  * Get the in order last element in the tree.
@@ -160,7 +160,7 @@ extern void *avl_first(avl_head_t *hd);
  * \param hd  Pointer to the head of the tree.
  * \return Pointer to the last element in the tree.
  */
-extern void *avl_last(avl_head_t* hd);
+extern void *avl_last(struct avl_head* hd);
 
 /**
  * Insert all the elements of another avl tree into the avl tree in hd. This
@@ -169,7 +169,7 @@ extern void *avl_last(avl_head_t* hd);
  * \param hd       Pointer to the avl tree to insert into.
  * \param splicee  Pointer to the avl tree to insert.
  */
-extern void avl_splice(avl_head_t *hd, avl_head_t *splicee);
+extern void avl_splice(struct avl_head *hd, struct avl_head *splicee);
 
 /**
  * Loop over the elements in the tree, in order.
