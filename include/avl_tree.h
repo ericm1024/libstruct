@@ -71,23 +71,20 @@ struct avl_node {
 
         /** balance factor. -1, 0, or 1 */
 	short balance;
-
-        /** where am I in my parent? (0 or 1) */
-	unsigned short cradle;
 };
 
-/* should return < 0 if lhs < rhs, 0 is lhs == rhs, and > 0 if lhs > rhs */
+/** should return < 0 if lhs < rhs, 0 is lhs == rhs, and > 0 if lhs > rhs */
 typedef int (*avl_cmp_t)(struct avl_node *lhs, struct avl_node *rhs);
 
 /** metadata/head structure for avl tree */
 struct avl_head {
-        /* pointer to the root node */
+        /** pointer to the root node */
 	struct avl_node *root;
 
-        /* number of nodes in the tree */
+        /** number of nodes in the tree */
 	size_t n_nodes;
 
-        /* less than comparator */
+        /** less than comparator */
 	avl_cmp_t cmp;
 };
 
