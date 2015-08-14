@@ -101,7 +101,7 @@ struct avl_head {
 	struct avl_head name = {                                        \
 		.root = NULL,						\
 		.n_nodes = 0,						\
-		.cmp = (avl_cmp_t)(lt) };
+		.cmp = (lt) };
 
 /**
  * Insert an element into the tree.
