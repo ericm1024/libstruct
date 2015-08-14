@@ -23,17 +23,11 @@
 
 #include "bloom.h"
 #include "fasthash.h"
-#include "pcg_variants.h"
+#include "util.h"
 #include <stdlib.h>
-#include <limits.h> /* CHAR_BIT */
+#include <limits.h>
 #include <math.h>
-#include <assert.h>
-#include <fcntl.h> /* open */
-#include <unistd.h> /* read */
-#include <stdio.h>
-#include <string.h> /* memset */
-
-#define RANDOM "/dev/urandom"
+#include <string.h>
 
 #define BITS_PER_LONG (CHAR_BIT * sizeof(long))
 
@@ -57,48 +51,25 @@
  */ 
 #define BINDEX_TO_BITMASK(bi) (1L << (bi & BINDEX_MASK))
 
-static inline void set_bit(bloom_t *bf, size_t biti)
+static inline void set_bit(struct bloom *bf, unsigned long biti)
 {
-	size_t i = BINDEX_TO_INDEX(biti);
-	long mask = BINDEX_TO_BITMASK(biti);
+	unsigned long i = BINDEX_TO_INDEX(biti);
+	unsigned long mask = BINDEX_TO_BITMASK(biti);
 	bf->bits[i] |= mask;
 }
 
-static inline int get_bit(bloom_t *bf, size_t biti)
+static inline int get_bit(const struct bloom *bf, unsigned long biti)
 {
-	size_t i = BINDEX_TO_INDEX(biti);
-	long mask = BINDEX_TO_BITMASK(biti);
+	unsigned long i = BINDEX_TO_INDEX(biti);
+	unsigned long mask = BINDEX_TO_BITMASK(biti);
 	return !!(bf->bits[i] & mask);
 }
 
-/* never look at this function its terrible */
-static bool fallback_seed_rng()
+bool bloom_init(struct bloom *bf)
 {
-	pcg128_t seed = (pcg128_t)(uintptr_t)&seed; /* ASLR. not my idea */
-	pcg64_srandom(seed, seed); /* ugh */
-	return true;
-}
+        double p, n, m, k;
+        unsigned i;
 
-/* TODO: do something reasonable if reading /dev/random fails */
-static bool seed_rng()
-{
-	int fd;
-	pcg128_t seeds[2];
-	int size;
-	fd = open(RANDOM, O_RDONLY);
-	if (fd < 0)
-		return fallback_seed_rng();
-
-	size = read(fd, &seeds, sizeof(seeds));
-	if (size < (int)sizeof(seeds))
-		return fallback_seed_rng();;
-	
-	pcg64_srandom(seeds[0], seeds[1]);
-	return true;
-}
-
-bool bloom_init(bloom_t *bf)
-{
 	if (!seed_rng())
 		return false;
 	
@@ -121,7 +92,7 @@ bool bloom_init(bloom_t *bf)
 	 * http://corte.si/%2Fposts/code/bloom-filter-rules-of-thumb/index.html
 	 */
 	
-	double p = bf->p;
+	p = bf->p;
 	if (p < BLOOM_P_MIN) {
 		p = BLOOM_P_MIN;
 		bf->p = p;
@@ -130,9 +101,9 @@ bool bloom_init(bloom_t *bf)
 		bf->p = p;
 	}
 	
-	double n = (double)bf->n;
-	double m = -(n * log(p))/(M_LN2*M_LN2);
-	double k = (m/n)*M_LN2;
+	n = bf->n;
+	m = -(n * log(p))/(M_LN2*M_LN2);
+	k = (m/n)*M_LN2;
 	
 	/*
 	 * m is the number of bits we want, but since we're allocating
@@ -140,31 +111,31 @@ bool bloom_init(bloom_t *bf)
 	 * of entries in the array, so we have to convert. We add 1
 	 * because the divide will always round down.
 	 */
-	bf->bsize = (size_t)(lrint(m)/(BITS_PER_LONG) + 1);
+	bf->bsize = lrint(m)/(BITS_PER_LONG) + 1;
 	bf->nbits = bf->bsize * BITS_PER_LONG;
-	bf->nhash = (size_t)k;
+	bf->nhash = k;
 
 	/* try to alocate both arrays */
-	bf->bits = (long*)malloc(sizeof(long)*bf->bsize);
+	bf->bits = malloc(sizeof *bf->bits * bf->bsize);
 	if (!bf->bits)
 		return false;
 	
-	bf->seeds = (uint64_t*)malloc(sizeof(uint64_t)*bf->nhash);
+	bf->seeds = malloc(sizeof *bf->seeds * bf->nhash);
 	if (!bf->seeds) {
 		free(bf->bits);
 		return false;
 	}
 
-	memset(bf->bits, 0, sizeof(long)*bf->bsize);
+	memset(bf->bits, 0, sizeof *bf->bits * bf->bsize);
 	
 	/* generate seeds for the hash functions */
-	for (size_t i = 0; i < bf->nhash; i++)
+	for (i = 0; i < bf->nhash; i++)
 		bf->seeds[i] = pcg64_random();
 
 	return true;
 }
 
-void bloom_destroy(bloom_t *bf)
+void bloom_destroy(struct bloom *bf)
 {
 	free(bf->bits);
 	free(bf->seeds);
@@ -172,18 +143,24 @@ void bloom_destroy(bloom_t *bf)
 	bf->seeds = NULL;
 }
 
-void bloom_insert(bloom_t *bf, uint64_t key)
+void bloom_insert(struct bloom *bf, uint64_t key)
 {
-	for (size_t i = 0; i < bf->nhash; i++) {
-		uint64_t hash = fasthash64(&key, sizeof(key), bf->seeds[i]);
+        uint64_t hash;
+        unsigned i;
+
+	for (i = 0; i < bf->nhash; i++) {
+		hash = fasthash64(&key, sizeof key, bf->seeds[i]);
 		set_bit(bf, hash % bf->nbits);
 	}
 }
 
-bool bloom_query(bloom_t *bf, uint64_t key)
+bool bloom_query(const struct bloom *bf, uint64_t key)
 {
-	for (size_t i = 0; i < bf->nhash; i++) {
-		uint64_t hash = fasthash64(&key, sizeof(key), bf->seeds[i]);
+        uint64_t hash;
+        unsigned i;
+
+	for (i = 0; i < bf->nhash; i++) {
+		hash = fasthash64(&key, sizeof key, bf->seeds[i]);
 		if (!get_bit(bf, hash % bf->nbits))
 			return false;
 	}
