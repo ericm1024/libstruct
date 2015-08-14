@@ -22,6 +22,8 @@
 
 #include "avl_tree.h"
 #include "bitops.h"
+#include "util.h"
+
 #include <stddef.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -88,13 +90,10 @@ static struct avl_node *closest_child(struct avl_node *n,
 	return child;
 }
 
-static unsigned short child_index(struct avl_node *child, struct avl_node *parent)
+static unsigned short child_index(struct avl_node *child)
 {
-#ifdef DEBUG
-	assert(parent->children[AVL_LEFT] == child
-	       || parent->children[AVL_RIGHT] == child);
-#endif
-        return parent->children[AVL_LEFT] == child ? AVL_LEFT : AVL_RIGHT;
+        struct avl_node *parent = get_parent(child);
+        return !parent || parent->children[AVL_LEFT] == child ? AVL_LEFT : AVL_RIGHT;
 }
 
 static short dir_to_bf(unsigned short right)
@@ -128,7 +127,7 @@ static struct avl_node *rotate_single(struct avl_node *root, unsigned short righ
 
 	/* update b (and p) */
 	if (p)
-		p->children[child_index(root, p)] = b;
+		p->children[child_index(root)] = b;
 	set_parent(b, get_parent(root));
 	b->children[right] = root;
 
@@ -190,7 +189,7 @@ static struct avl_node *rotate_double(struct avl_node *root, unsigned short righ
 
 	/* update d (and p) */
 	if (p)
-		p->children[child_index(root, p)] = d;
+		p->children[child_index(root)] = d;
 	d->children[right] = root;
 	d->children[left] = get_parent(d);
 	set_balance(d, 0);
@@ -281,152 +280,158 @@ static struct avl_node *rotate(struct avl_head *hd, struct avl_node *root,
 	return new_root;
 }
 
+static void sanitize_node(struct avl_node *node)
+{
+        node->children[AVL_RIGHT] = NULL;
+	node->children[AVL_LEFT] = NULL;
+	set_parent(node, NULL);
+	set_balance(node, 0);
+}
+
 /*
- * see slides 40-42 of this:
- * http://courses.cs.washington.edu/courses/cse373/06sp/handouts/lecture12.pdf
- * for an explanation of the iterative insetion algorithm
+ * The idea is we first traverse to an empty leaf slot and add the node there, then
+ * walk back up the tree, adjusting balance factors as necessary. If we hit a node
+ * that's leaning too far to the right or the left, rotate about it in the opposite
+ * direction.
  */
 void avl_insert(struct avl_head *hd, struct avl_node *insertee)
 {
-	struct avl_node **where = &hd->root;
-	struct avl_node *parent = *where, *child;
+	struct avl_node *child, *parent = hd->root;
+        unsigned short right;
 
         if (!insertee)
                 return;
 
-	/* initialize the node with sane values before we do anything with it */
-	insertee->children[AVL_RIGHT] = NULL;
-	insertee->children[AVL_LEFT] = NULL;
-	set_parent(insertee, NULL);
-	set_balance(insertee, 0);
+        sanitize_node(insertee);
 
-	/* find where we're going to insert in */
-	while (*where) {
-                int cmp = hd->cmp(insertee, *where);
-		parent = *where;
-		if (cmp < 0)
-			where = &((*where)->children[AVL_LEFT]);
-		else
-			where = &((*where)->children[AVL_RIGHT]);
-	}
-
-	/* insert 'in' */
-	*where = insertee;
-	set_parent(insertee, parent);
-	hd->n_nodes++;
+        hd->n_nodes++;
+        if (!parent) {
+                hd->root = insertee;
+        } else {
+                for (;;) {
+                        int cmp = hd->cmp(insertee, parent);
+                        right = cmp < 0 ? AVL_LEFT : AVL_RIGHT;
+                        if (!parent->children[right])
+                                break;
+                        parent = parent->children[right];
+                }
+                parent->children[right] = insertee;
+        }
+        set_parent(insertee, parent);
 
 	/* traverse back until we hit the node in need of rebalancing */
 	child = insertee;
 	while (parent) {
-		unsigned short right = child_index(child, parent);
-		short bal = get_balance(parent);
-		if (right == AVL_RIGHT)
-			bal++;
-		else /* right == AVL_LEFT */
-			bal--;
-		
+                short bal = get_balance(parent);
+		right = child_index(child);
+		bal += right == AVL_RIGHT ? 1 : -1;
+
 		if (bal == RIGHT_OVERWEIGHT || bal == LEFT_OVERWEIGHT) {
 			rotate(hd, parent, 1 - right);
 			return;
 		}
-		
+
 		set_balance(parent, bal);
 		if (bal == BALANCED)
 			return;
+
 		child = parent;
-		parent = get_parent(parent);
+		parent = get_parent(child);
 	}
+}
+
+static void link_parent_child(struct avl_head *hd, struct avl_node *parent,
+                              struct avl_node *child, unsigned short dir)
+{
+	if (parent) {
+		parent->children[dir] = child;
+	} else {
+		hd->root = child;
+	}
+	if (child)
+		set_parent(child, parent);
+}
+
+/*
+ * swap two nodes
+ * assumptions/preconditions:
+ *     - @high is higher up in the tree than low
+ *     - @high has two non-null children
+ */
+static void avl_swap(struct avl_head *hd, struct avl_node *high,
+                     struct avl_node *low)
+{
+	struct avl_node *tmp;
+	unsigned short right;
+	unsigned short left;
+
+	if (get_parent(high)) {
+		right = child_index(high);
+		tmp = get_parent(high);
+		tmp->children[right] = low;
+	} else {
+		hd->root = low;
+	}
+
+	/* special case where low is high's child */
+	if (low == high->children[AVL_RIGHT]
+	    || low == high->children[AVL_LEFT]) {
+		right = child_index(low);
+		left = 1 - right;
+
+                /* swap shared links */
+		low->parent = high->parent;
+		high->parent = low;
+
+		high->children[right] = low->children[right];
+		low->children[right] = high;
+
+		/* swap other child */
+		swap_t(struct avl_node *, high->children[left],
+                       low->children[left]);
+                swap_t(short, high->balance, low->balance);
+	} else {
+		right = child_index(low);
+		tmp = get_parent(low);
+		tmp->children[right] = high;
+
+		/* swap everything */
+		swap_t(struct avl_node, *high, *low);
+	}
+
+	if (high->children[AVL_RIGHT])
+		set_parent(high->children[AVL_RIGHT], high);
+	if (high->children[AVL_LEFT])
+		set_parent(high->children[AVL_LEFT], high);
+	set_parent(low->children[AVL_RIGHT], low);
+	set_parent(low->children[AVL_LEFT], low);
 }
 
 void avl_delete(struct avl_head *hd, struct avl_node *victim)
 {
-	struct avl_node *path, *child, *parent, *tmp;
+	struct avl_node *path, *child;
 	unsigned short right;
 
         if (!victim)
 		return;
 
         hd->n_nodes--;
+        if (victim->children[AVL_LEFT] && victim->children[AVL_RIGHT]) {
+                child = closest_child(victim, SIGN_BIT(~get_balance(victim)));
+                avl_swap(hd, victim, child);
+        }
 
-	if (victim->children[AVL_LEFT] == NULL
-	    && victim->children[AVL_RIGHT] == NULL) {
-		/* no children case */
-		tmp = get_parent(victim);
-		if (tmp) {
-			right = child_index(victim, tmp);
-			tmp->children[right] = NULL;
-		} else
-			hd->root = NULL;
-		path = tmp;
-	} else if (victim->children[AVL_RIGHT] == NULL) {
-		/* left child only case */
-		tmp = get_parent(victim);
-		child = victim->children[AVL_LEFT];
-		if (tmp) {
-			right = child_index(victim, tmp);
-			tmp->children[right] = child;
-		} else
-			hd->root = child;
-		set_parent(child, tmp);
-		path = tmp;
-	} else if (victim->children[AVL_LEFT] == NULL) {
-		/* right child only case */
-		tmp = get_parent(victim);
-		child = victim->children[AVL_RIGHT];
-		if (tmp) {
-			right = child_index(victim, tmp);
-			tmp->children[right] = child;
-		} else
-			hd->root = child;
-		set_parent(child, tmp);
-		path = tmp;
-	} else {
-		/* hard case -- two children */
-		tmp = get_parent(victim);
-		child = closest_child(victim, SIGN_BIT(~get_balance(victim)));
+        /* replace n with its only child */
+        child = victim->children[victim->children[AVL_LEFT] ?
+                                 AVL_LEFT : AVL_RIGHT];
+        path = get_parent(victim);
+        right = child_index(victim);
+        link_parent_child(hd, path, child, right);
 
-		/* move child's child up one, if such a child exists */
-		path = get_parent(child);
-		right = child_index(child, path);
-		if (path == victim)
-			path = child;
-		if (child->children[AVL_LEFT]) {
-			parent = get_parent(child);
-			parent->children[child_index(child, parent)] =
-				child->children[AVL_LEFT];
-			set_parent(child->children[AVL_LEFT], parent);
-		} else if (child->children[AVL_RIGHT]) {
-			parent = get_parent(child);
-			parent->children[child_index(child, parent)] =
-				child->children[AVL_RIGHT];
-			set_parent(child->children[AVL_RIGHT], parent);
-		} else {
-			parent = get_parent(child);
-			if (parent)
-				parent->children[child_index(child, parent)] = NULL;
-		}
-		
-		if (tmp)
-			tmp->children[child_index(victim, tmp)] = child;
-		else
-			hd->root = child;
-		
-		child->children[AVL_LEFT] = victim->children[AVL_LEFT];
-		child->children[AVL_RIGHT] = victim->children[AVL_RIGHT];
-		if (child->children[AVL_LEFT])
-			set_parent(child->children[AVL_LEFT], child);
-		if (child->children[AVL_RIGHT])
-			set_parent(child->children[AVL_RIGHT], child);
-		set_balance(child, get_balance(victim));
-		set_parent(child, tmp);
-	}
-
+        /* walk back up the tree, adjusting balances as we go */
 	while (path) {
 		short bal = get_balance(path);
-		if (right == AVL_RIGHT)
-			bal--;
-		else
-			bal++;
+                bal += right == AVL_RIGHT ? -1 : 1;
 
 		if (bal == RIGHT_OVERWEIGHT || bal == LEFT_OVERWEIGHT) {
 			path = rotate(hd, path, right);
@@ -441,7 +446,7 @@ void avl_delete(struct avl_head *hd, struct avl_node *victim)
 		path = get_parent(path);
 		if (!path)
 			return;
-		right = child_index(child, path);
+		right = child_index(child);
 	}
 }
 
