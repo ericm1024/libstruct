@@ -361,14 +361,14 @@ static void link_parent_child(struct avl_head *hd, struct avl_node *parent,
 static void avl_swap(struct avl_head *hd, struct avl_node *high,
                      struct avl_node *low)
 {
-	struct avl_node *tmp;
+	struct avl_node *parent;
 	unsigned short right;
 	unsigned short left;
 
 	if (get_parent(high)) {
 		right = child_index(high);
-		tmp = get_parent(high);
-		tmp->children[right] = low;
+		parent = get_parent(high);
+		parent->children[right] = low;
 	} else {
 		hd->root = low;
 	}
@@ -392,8 +392,8 @@ static void avl_swap(struct avl_head *hd, struct avl_node *high,
                 swap_t(short, high->balance, low->balance);
 	} else {
 		right = child_index(low);
-		tmp = get_parent(low);
-		tmp->children[right] = high;
+		parent = get_parent(low);
+		parent->children[right] = high;
 
 		/* swap everything */
 		swap_t(struct avl_node, *high, *low);
