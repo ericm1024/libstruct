@@ -66,23 +66,29 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* bloom filter */
-typedef struct bloom {
-	long *bits;
-	/* bits array for filter */
+/** bloom filter */
+struct bloom {
+        /** bits array for filter */
+	unsigned long *bits;
+
+        /** seeds for hash functions */
 	uint64_t *seeds;
-	/* seeds for hash functions */
-	size_t n;
-	/* target number of elements */
-	size_t bsize;
-	/* size of bits array */
-	size_t nhash;
-	/* number of hash functions, also size of seeds array */
+
+        /** target number of elements. This is used to size the bitmap */
+	unsigned long n;
+
+        /** number of longs in the bits array */
+	unsigned long bsize;
+
+        /** number of hash functions, i.e. number of entries in seeds */
+	unsigned long nhash;
+
+        /** target false probability */
 	double p;
-	/* target false probability */
-	size_t nbits;
-	/* actual number of bits in the array */
-} bloom_t;
+
+        /** number of bits we actually use in the bits array */
+	unsigned long nbits;
+};
 
 /*! lower bound on allowable false positive probability parameter */
 #define BLOOM_P_MIN (1e-5)
@@ -101,7 +107,7 @@ typedef struct bloom {
  * bloom_init.
  */
 #define BLOOM_FILTER(name, nkeys, prob)			   \
-	bloom_t name = {				   \
+	struct bloom name = {				   \
 		.bits = NULL,				   \
 		.seeds = NULL,				   \
 		.n = (nkeys),				   \
@@ -115,21 +121,21 @@ typedef struct bloom {
  * \param bf  The filter to initialize.
  * \return true on sucess, false on allocation failure.
  */
-extern bool bloom_init(bloom_t *bf);
+extern bool bloom_init(struct bloom *bf);
 
 /**
  * \brief Destroy a bloom filter.
  * \param bf  The bloom filter to initialize.
  * \detail Frees all memory associated with @bf
  */
-extern void bloom_destroy(bloom_t *bf);
+extern void bloom_destroy(struct bloom *bf);
 
 /**
  * \brief Insert a key into the filter.
  * \param bf  The bloom filter to insert into.
  * \param key  The key to insert.
  */
-extern void bloom_insert(bloom_t *bf, uint64_t key);
+extern void bloom_insert(struct bloom *bf, uint64_t key);
 
 /**
  * \brief Query a bloom filter for the existence of a key.
@@ -137,6 +143,6 @@ extern void bloom_insert(bloom_t *bf, uint64_t key);
  * \param key  The key to query for.
  * \return true if the key probably exists, false if it definitely does not. 
  */
-extern bool bloom_query(bloom_t *bf, uint64_t key);
+extern bool bloom_query(const struct bloom *bf, uint64_t key);
 
 #endif /* STRUCT_BLOOM_H */

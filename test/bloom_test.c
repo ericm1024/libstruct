@@ -109,5 +109,3 @@ int main(void)
 	REGISTER_TEST(test_empty_query);
 	return run_all_tests();
 }
-
-
