@@ -9,7 +9,7 @@ test: $(TESTS)
 
 .PHONY: runtest
 runtest: test
-	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LIBDIR) \
+	$(LD_ENVVAR)=$(LD_LIBRARY_PATH):$(LIBDIR) \
 		$(BINDIR)/runtests $(TESTS)
 
 .PHONY: clean

@@ -45,14 +45,27 @@ DEP_INCLUDES 	= $(realpath $(addsuffix /include,$(subst Makefile,,\
 # currently this library supports building with gcc or clang
 OPTFLAGS 	= -O0
 INCLUDE 	= -I$(BUILD_ROOT)/include $(addprefix -I,$(DEP_INCLUDES))
-LIBS 		= -lm
-DEBUG 		= -g
-CSTD 		= -std=gnu99
-WARN 		= -Wall -Wextra -pedantic
+LIBS		= -lm
+DEBUG		= -g
+CSTD		= -std=gnu99
+WARN		= -Wall -Wextra -pedantic
 export CC 	= gcc
 export CFLAGS 	= -fPIC $(DEBUG) $(CSTD) $(WARN) $(OPTFLAGS) \
 			$(INCLUDE) $(LIBS)
 
+# OS things
+UNAME_S 	:= $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	OS_LD_SOFLAG 	= -soname
+	OS_LD_ENVVAR 	= LD_LIBRARY_PATH
+endif
+ifeq ($(UNAME_S),Darwin)
+	OS_LD_SOFLAG 	= -install_name
+	OS_LD_ENVVAR 	= DYLD_LIBRARY_PATH
+endif
+
+export LD_SOFLAG 	= $(OS_LD_SOFLAG)
+export LD_ENVVAR	= $(OS_LD_ENVVAR)
 
 # default: make dependencies, shared lib, documnetation, and run tests
 .PHONY: all
@@ -79,7 +92,7 @@ dirs:
 .PHONY: shared
 shared: objs
 	cd $(OBJDIR)
-	$(CC) -shared -Wl,-soname,$(SO_LIB_NAME) \
+	$(CC) -shared -Wl,$(LD_SOFLAG),$(SO_LIB_NAME) \
 		-o $(LIBDIR)/$(SO_LIB_FULL_NAME) $(CFLAGS) $(OBJS)
 	test -L $(LIBDIR)/$(SO_LIB_NAME) || \
 		ln -s $(LIBDIR)/$(SO_LIB_FULL_NAME) $(LIBDIR)/$(SO_LIB_NAME)
