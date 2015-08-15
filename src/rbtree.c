@@ -52,18 +52,18 @@
 #define IS_RED(n) ((uintptr_t)(n)->parent & 1UL)
 #define IS_BLACK(n) (!((uintptr_t)(n)->parent & 1UL))
 #define MAKE_RED(n) \
-        (n)->parent = (rb_node_t*)((uintptr_t)(n)->parent | 1UL)
+        (n)->parent = (struct rb_node*)((uintptr_t)(n)->parent | 1UL)
 #define MAKE_BLACK(n) \
-	(n)->parent = (rb_node_t*)((uintptr_t)(n)->parent & ~1UL)
+	(n)->parent = (struct rb_node*)((uintptr_t)(n)->parent & ~1UL)
 #define SET_PARENT(n, p) \
-	(n)->parent = (rb_node_t*)((uintptr_t)(p) \
+	(n)->parent = (struct rb_node*)((uintptr_t)(p) \
 				   | ((uintptr_t)(n)->parent & 1UL))
-#define GET_PARENT(n) ((rb_node_t*)((uintptr_t)(n)->parent & ~1UL))
+#define GET_PARENT(n) ((struct rb_node*)((uintptr_t)(n)->parent & ~1UL))
 #define GET_COLOR(n) ((unsigned long)((uintptr_t)(n)->parent & 1UL))
 
-static inline void link_parent_child(rb_head_t *hd,
-				     rb_node_t *parent,
-				     rb_node_t *child,
+static inline void link_parent_child(struct rb_head *hd,
+				     struct rb_node *parent,
+				     struct rb_node *child,
 				     unsigned long dir)
 {
 	if (parent) {
@@ -75,26 +75,26 @@ static inline void link_parent_child(rb_head_t *hd,
 		SET_PARENT(child, parent);
 }
 
-static inline void make_black(rb_node_t *n)
+static inline void make_black(struct rb_node *n)
 {
 	if (n)
 		MAKE_BLACK(n);
 }
 
-static inline bool is_black(rb_node_t *n)
+static inline bool is_black(struct rb_node *n)
 {
 	return !n || IS_BLACK(n);
 }
 
-static inline bool is_red(rb_node_t *n)
+static inline bool is_red(struct rb_node *n)
 {
 	return n && IS_RED(n);
 }
 
-static inline void set_color(rb_node_t *n, unsigned long color)
+static inline void set_color(struct rb_node *n, unsigned long color)
 {
-	n->parent = (rb_node_t*)((uintptr_t)n->parent & ~1UL);
-	n->parent = (rb_node_t*)((uintptr_t)n->parent | (color & 1));
+	n->parent = (struct rb_node*)((uintptr_t)n->parent & ~1UL);
+	n->parent = (struct rb_node*)((uintptr_t)n->parent | (color & 1));
 }
 
 /*
@@ -119,17 +119,17 @@ static inline unsigned long cmp_to_index(long cmp)
 	return (~cmp >> (sizeof(cmp) * CHAR_BIT - 1)) & 1L;
 }
 
-static inline rb_node_t *data_to_node(rb_head_t *hd, void *data)
+static inline struct rb_node *data_to_node(struct rb_head *hd, void *data)
 {
-	return (rb_node_t*)((uintptr_t)data + hd->offset);
+	return (struct rb_node*)((uintptr_t)data + hd->offset);
 }
 
-static inline void *node_to_data(rb_head_t *hd, rb_node_t *n)
+static inline void *node_to_data(struct rb_head *hd, struct rb_node *n)
 {
 	return (void *)((uintptr_t)n - hd->offset);
 }
 
-static inline rb_node_t *init_node(rb_node_t *n)
+static inline struct rb_node *init_node(struct rb_node *n)
 {
 	n->parent = NULL;
 	n->chld[LEFT] = NULL;
@@ -141,9 +141,9 @@ static inline rb_node_t *init_node(rb_node_t *n)
 /*
  * get the index of a node in its parent.
  */
-static inline unsigned long get_cradle(rb_node_t *n)
+static inline unsigned long get_cradle(struct rb_node *n)
 {
-	rb_node_t *p = GET_PARENT(n);
+	struct rb_node *p = GET_PARENT(n);
 	return p && p->chld[1] == n;
 }
 
@@ -153,9 +153,9 @@ static inline unsigned long get_cradle(rb_node_t *n)
  *     - @high is higher up in the tree than low
  *     - @high has two non-null children
  */ 
-static void rb_swap(rb_head_t *hd, rb_node_t *high, rb_node_t *low)
+static void rb_swap(struct rb_head *hd, struct rb_node *high, struct rb_node *low)
 {
-	rb_node_t *tmp;
+	struct rb_node *tmp;
 	unsigned long right;
 	unsigned long left;
 	unsigned long color;
@@ -220,13 +220,13 @@ static void rb_swap(rb_head_t *hd, rb_node_t *high, rb_node_t *low)
  *   / \             / \
  *  A   C           C   E
  */ 
-static rb_node_t *rb_rotate_single(rb_head_t *hd,
-				   rb_node_t *root,
+static struct rb_node *rb_rotate_single(struct rb_head *hd,
+				   struct rb_node *root,
 				   unsigned long right)
 {
 	unsigned long left = 1 - right;
-	rb_node_t *child = root->chld[left];
-	rb_node_t *parent = GET_PARENT(root);
+	struct rb_node *child = root->chld[left];
+	struct rb_node *parent = GET_PARENT(root);
 
 	/* update root and child's parents */
 	SET_PARENT(child, parent);
@@ -255,8 +255,8 @@ static rb_node_t *rb_rotate_single(rb_head_t *hd,
  *    / \
  *   C   E
  */ 
-static rb_node_t *rb_rotate_double(rb_head_t *hd,
-				   rb_node_t *root,
+static struct rb_node *rb_rotate_double(struct rb_head *hd,
+				   struct rb_node *root,
 				   unsigned long right)
 {
 	unsigned long left = 1 - right;
@@ -264,21 +264,21 @@ static rb_node_t *rb_rotate_double(rb_head_t *hd,
 	return rb_rotate_single(hd, root, right);
 }
 
-static inline rb_node_t *closest_child(rb_node_t *n, unsigned long right)
+static inline struct rb_node *closest_child(struct rb_node *n, unsigned long right)
 {
-	rb_node_t *i;
+	struct rb_node *i;
 	unsigned long left = 1 - right;
 	for (i = n->chld[right]; i->chld[left]; i = i->chld[left])
 		;
 	return i;
 }
 
-void rb_insert(rb_head_t *hd, void *new)
+void rb_insert(struct rb_head *hd, void *new)
 {
-	rb_node_t *n = init_node(data_to_node(hd, new));
-	rb_node_t *path = hd->root;
-	rb_node_t *aunt;
-	rb_node_t *gparent;
+	struct rb_node *n = init_node(data_to_node(hd, new));
+	struct rb_node *path = hd->root;
+	struct rb_node *aunt;
+	struct rb_node *gparent;
 	long cmp;
 	unsigned long i;
 	unsigned long stack = 0; /* bit stack of directions we traversed
@@ -352,15 +352,15 @@ void rb_insert(rb_head_t *hd, void *new)
 	MAKE_BLACK(hd->root);
 }
 
-void rb_erase(rb_head_t *hd, void *victim)
+void rb_erase(struct rb_head *hd, void *victim)
 {
-	rb_node_t *n = data_to_node(hd, victim);
-	rb_node_t *child;
-	rb_node_t *parent;
-	rb_node_t *sibling;
-	rb_node_t *rniece;
-	rb_node_t *lniece;
-	rb_node_t *tmp;
+	struct rb_node *n = data_to_node(hd, victim);
+	struct rb_node *child;
+	struct rb_node *parent;
+	struct rb_node *sibling;
+	struct rb_node *rniece;
+	struct rb_node *lniece;
+	struct rb_node *tmp;
 	unsigned long left;
 	unsigned long right;
 	unsigned long color;
@@ -451,9 +451,9 @@ void rb_erase(rb_head_t *hd, void *victim)
 	make_black(hd->root);
 }
 
-void *rb_find(rb_head_t *hd, void *findee)
+void *rb_find(struct rb_head *hd, void *findee)
 {
-	rb_node_t *n = hd->root;
+	struct rb_node *n = hd->root;
 	long cmp;
 	if (!findee)
 		return NULL;
@@ -467,9 +467,9 @@ void *rb_find(rb_head_t *hd, void *findee)
 	return NULL;
 }
 
-void *rb_first(rb_head_t *hd)
+void *rb_first(struct rb_head *hd)
 {
-	rb_node_t *first = hd->root;
+	struct rb_node *first = hd->root;
 	if (!first)
 		return NULL;
 	while (first->chld[LEFT])
@@ -477,9 +477,9 @@ void *rb_first(rb_head_t *hd)
 	return node_to_data(hd, first);
 }
 
-void *rb_last(rb_head_t *hd)
+void *rb_last(struct rb_head *hd)
 {
-	rb_node_t *first = hd->root;
+	struct rb_node *first = hd->root;
 	if (!first)
 		return NULL;
 	while (first->chld[RIGHT])
@@ -488,10 +488,10 @@ void *rb_last(rb_head_t *hd)
 
 }
 
-void *rb_inorder_next(rb_head_t *hd, void *start)
+void *rb_inorder_next(struct rb_head *hd, void *start)
 {
-	rb_node_t *n = data_to_node(hd, start);
-	rb_node_t *path;
+	struct rb_node *n = data_to_node(hd, start);
+	struct rb_node *path;
 
 	if (!start)
 		return NULL;
@@ -506,10 +506,10 @@ void *rb_inorder_next(rb_head_t *hd, void *start)
 	return n ? node_to_data(hd, n) : NULL;
 }
 
-void *rb_inorder_prev(rb_head_t *hd, void *start)
+void *rb_inorder_prev(struct rb_head *hd, void *start)
 {
- 	rb_node_t *n = data_to_node(hd, start);
-	rb_node_t *path;
+ 	struct rb_node *n = data_to_node(hd, start);
+	struct rb_node *path;
 
 	if (!start)
 		return NULL;
@@ -524,10 +524,10 @@ void *rb_inorder_prev(rb_head_t *hd, void *start)
 	return n ? node_to_data(hd, n) : NULL;	
 }
 
-void rb_postorder_iterate(rb_head_t *hd, void(*f)(void *))
+void rb_postorder_iterate(struct rb_head *hd, void(*f)(void *))
 {
-	rb_node_t *parent = hd->root;
-	rb_node_t *child;
+	struct rb_node *parent = hd->root;
+	struct rb_node *child;
 	bool vleft = false;  /* visited left child */
 	bool vright = false; /* visited right child */
 	

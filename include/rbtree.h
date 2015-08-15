@@ -64,34 +64,34 @@
 
 #include <stddef.h>
 
-typedef struct rb_node {
+struct rb_node {
 	struct rb_node *parent;
 	struct rb_node *chld[2];
-} rb_node_t;
+};
 
 typedef long (*rb_cmp_t)(void *lhs, void *rhs);
 
-typedef struct rb_head {
-	rb_node_t *root;
+struct rb_head {
+	struct rb_node *root;
 	const size_t offset;
 	/* offset of rb_nodes in enclosing structs */
 	rb_cmp_t cmp;
 	size_t nnodes;
 	/* number of nodes in the tree */
-} rb_head_t;
+};
 
 /**
  * \brief Declare a red-black tree head.
  *
- * \param name       (token) The name of the rb_head_t to declare.
+ * \param name       (token) The name of the struct rb_head to declare.
  * \param lt         (function pointer) The less than operator for the tree.
  *                   This function should return < 0 when lhs < rhs, 0 when
  *                   lhs == rhs, and > 0 when lhs > rhs.
  * \param container  (type) Type of the enclosing structure.
- * \param member     (token) name of the rb_node_t member in container.
+ * \param member     (token) name of the struct rb_node member in container.
  */
 #define RB_TREE(name, lt, container, member)				\
-	rb_head_t name = {						\
+	struct rb_head name = {						\
 		.root = NULL,						\
 		.offset = offsetof(container, member),			\
 		.cmp = (rb_cmp_t)lt,					\
@@ -103,7 +103,7 @@ typedef struct rb_head {
  * \param hd   Head of the tree.
  * \param new  Element to insert.
  */
-extern void rb_insert(rb_head_t *hd, void *new);
+extern void rb_insert(struct rb_head *hd, void *new);
 
 /**
  * \brief Remove an element from a tree.
@@ -111,7 +111,7 @@ extern void rb_insert(rb_head_t *hd, void *new);
  * \param hd      Head of the tree.
  * \param victim  Element to remove.
  */
-extern void rb_erase(rb_head_t *hd, void *victim);
+extern void rb_erase(struct rb_head *hd, void *victim);
 
 /**
  * \brief Look for an element from a tree.
@@ -120,7 +120,7 @@ extern void rb_erase(rb_head_t *hd, void *victim);
  * \param findee  Element matching the element to find.
  * \return Element matching findee, or NULL if no such element exists.
  */
-extern void *rb_find(rb_head_t *hd, void *findee);
+extern void *rb_find(struct rb_head *hd, void *findee);
 
 /**
  * \brief Get the in order first element in a tree.
@@ -128,7 +128,7 @@ extern void *rb_find(rb_head_t *hd, void *findee);
  * \param hd  Head of the tree.
  * \return The first element in the tree.
  */
-extern void *rb_first(rb_head_t *hd);
+extern void *rb_first(struct rb_head *hd);
 
 /**
  * \brief Get the in order last element in the tree.
@@ -136,7 +136,7 @@ extern void *rb_first(rb_head_t *hd);
  * \param hd  Head of the tree.
  * \return The last element in the tree.
  */
-extern void *rb_last(rb_head_t *hd);
+extern void *rb_last(struct rb_head *hd);
 
 /**
  * \brief Get the in order next element in a tree.
@@ -145,7 +145,7 @@ extern void *rb_last(rb_head_t *hd);
  * \param hd     Head of the tree containing start.
  * \return The element imediately after start.
  */
-extern void *rb_inorder_next(rb_head_t *hd, void *start);
+extern void *rb_inorder_next(struct rb_head *hd, void *start);
 
 /**
  * \brief Get the in order previous element in a tree.
@@ -154,7 +154,7 @@ extern void *rb_inorder_next(rb_head_t *hd, void *start);
  * \param hd     Head of the tree containing start.
  * \return The element imediately before start.
  */
-extern void *rb_inorder_prev(rb_head_t *hd, void *start);
+extern void *rb_inorder_prev(struct rb_head *hd, void *start);
 
 /**
  * \brief Get the next element in the tree in postorder.
@@ -166,7 +166,7 @@ extern void *rb_inorder_prev(rb_head_t *hd, void *start);
  * its parent. This is generally only used for safely freeing memory
  * associated With every node in the tree.
  */ 
-extern void rb_postorder_iterate(rb_head_t *hd, void(*f)(void *));
+extern void rb_postorder_iterate(struct rb_head *hd, void(*f)(void *));
 
 /**
  * Loop over the elements in a tree in order.

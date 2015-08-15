@@ -41,10 +41,7 @@
 #include <assert.h>
 #include <string.h>
 
-/* in case we want to reuse this implementation for other types */
-typedef char char_t;
-
-#define NULL_BYTE ((char_t)'\0')
+#define NULL_BYTE ('\0')
 
 /* !!! not portable */
 #define CACHELINE (64U)
@@ -52,14 +49,14 @@ typedef char char_t;
 #define CHUNKSIZE (CACHELINE*2)
 /*
 #define NCHARS								\
-	((CHUNKSIZE - (sizeof(struct list) + sizeof(short)))/sizeof(char_t))
+	((CHUNKSIZE - (sizeof(struct list) + sizeof(short)))/sizeof(char))
 */
 #define NCHARS 8
 
 struct cs_chunk {
 	struct list link; /* chunk list. do NOT move this from offset 0 */
 	unsigned short end; /* next free index in the chunk */
-	char_t chars[NCHARS]; /* array of chars */
+	char chars[NCHARS]; /* array of chars */
 };
 
 struct cs_cursor {
@@ -415,13 +412,13 @@ free_clone:
 char *cs_to_cstring(struct chunky_str *cs, unsigned long *length)
 {
 	/*
-	 * we malloc one extra char_t's worth of space in case @cs is not
+	 * we malloc one extra char's worth of space in case @cs is not
 	 * null terminated
 	 */
-	char_t *cstr = malloc(sizeof(char_t)*(cs->nchars + 1));
+	char *cstr = malloc(sizeof(char)*(cs->nchars + 1));
 	unsigned long i = 0;
 	struct cs_cursor cursor = {.owner = cs, .chunk = NULL, .index = 0};
-	char_t c;
+	char c;
 
 	if (!cstr) {
 		*length = 0;
@@ -443,10 +440,10 @@ char *cs_to_cstring(struct chunky_str *cs, unsigned long *length)
 
 unsigned long cs_write(struct chunky_str *cs, char *buf, unsigned long size)
 {
-	unsigned long nchars = size/sizeof(char_t);
+	unsigned long nchars = size/sizeof(char);
 	unsigned long i = 0;
 	struct cs_cursor cursor = {.owner = cs, .chunk = NULL, .index = 0};
-	char_t c;
+	char c;
 
 	cs_for_each(&cursor) {
 		c = cs_cursor_getchar(&cursor);
@@ -455,5 +452,5 @@ unsigned long cs_write(struct chunky_str *cs, char *buf, unsigned long size)
 		buf[i++] = c;
 	}
 
-	return i*sizeof(char_t);
+	return i*sizeof(char);
 }

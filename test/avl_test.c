@@ -30,10 +30,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct {
+struct test_struct {
 	uint64_t x;
 	struct avl_node avl;
-} test_t;
+};
 
 size_t count_nodes(struct avl_node *n)
 {
@@ -91,7 +91,7 @@ void print_node(struct avl_node *n)
 		return;
 	}
 
-	test_t *data = container_of(n, test_t, avl);
+	struct test_struct *data = container_of(n, struct test_struct, avl);
 	printf("(");
 	print_node(n->children[0]);
 	printf(", %"PRIu64", ", data->x);
@@ -107,8 +107,8 @@ void print_tree(struct avl_head *t)
 
 int point_cmp(struct avl_node *lhs, struct avl_node *rhs)
 {
-        uint64_t lx = container_of(lhs, test_t, avl)->x;
-	uint64_t rx = container_of(rhs, test_t, avl)->x;
+        uint64_t lx = container_of(lhs, struct test_struct, avl)->x;
+	uint64_t rx = container_of(rhs, struct test_struct, avl)->x;
 
 	if (lx < rx)
 		return -1;
@@ -125,8 +125,8 @@ int point_cmp(struct avl_node *lhs, struct avl_node *rhs)
 
 void test_insert()
 {
-	AVL_TREE(t, &point_cmp, test_t);
-	test_t data[n*2];
+	AVL_TREE(t, &point_cmp, struct test_struct);
+	struct test_struct data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = pcg64_random() % (n/2);
@@ -138,7 +138,7 @@ void test_insert()
 
 	for (size_t i = 0; i < n; i++) {
 		struct avl_node *e = avl_find(&t, &data[i].avl);
-		ASSERT_TRUE(container_of(e, test_t, avl)->x == data[i].x,
+		ASSERT_TRUE(container_of(e, struct test_struct, avl)->x == data[i].x,
 			"test_basic: error. could not find inserted element.\n");
 	}
 
@@ -153,8 +153,8 @@ void test_insert()
 
 void test_delete()
 {
-	AVL_TREE(t, &point_cmp, test_t);
-	test_t data[n];
+	AVL_TREE(t, &point_cmp, struct test_struct);
+	struct test_struct data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = pcg64_random() % (n/2);
@@ -173,8 +173,8 @@ void test_delete()
 /* avl next */
 void test_itterators()
 {
-	AVL_TREE(t, &point_cmp, test_t);
-	test_t data[n];
+	AVL_TREE(t, &point_cmp, struct test_struct);
+	struct test_struct data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
@@ -223,9 +223,9 @@ void test_itterators()
 /* avl splice */
 void test_splice()
 {
-	AVL_TREE(t, &point_cmp, test_t);
-	AVL_TREE(s, &point_cmp, test_t);
-	test_t data[n*2];
+	AVL_TREE(t, &point_cmp, struct test_struct);
+	AVL_TREE(s, &point_cmp, struct test_struct);
+	struct test_struct data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = pcg64_random() % (n/2);
@@ -243,7 +243,7 @@ void test_splice()
 
 	for (size_t i = 0; i < n*2; i++) {
                 struct avl_node *node = avl_find(&t, &data[i].avl);
-		ASSERT_TRUE(container_of(node, test_t, avl)->x == data[i].x,
+		ASSERT_TRUE(container_of(node, struct test_struct, avl)->x == data[i].x,
 			    "test_splice: could not find element in target tree"
 			    " after splicing.\n");
 	}
@@ -252,8 +252,8 @@ void test_splice()
 /* avl for each */
 void test_for_each()
 {
-	AVL_TREE(t, &point_cmp, test_t);
-	test_t data[n];
+	AVL_TREE(t, &point_cmp, struct test_struct);
+	struct test_struct data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
@@ -261,7 +261,7 @@ void test_for_each()
 	}
 
 	avl_for_each(&t, i) {
-                container_of(i, test_t, avl)->x++;
+                container_of(i, struct test_struct, avl)->x++;
 	}
 	
 	for (size_t i = 0; i < n; i++)
@@ -272,8 +272,8 @@ void test_for_each()
 /* avl for each range */
 void test_for_each_range()
 {
-	AVL_TREE(t, &point_cmp, test_t);
-	test_t data[n];
+	AVL_TREE(t, &point_cmp, struct test_struct);
+	struct test_struct data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
@@ -281,7 +281,7 @@ void test_for_each_range()
 	}
 
 	avl_for_each_range(&t, i, &data[n/4].avl, &data[n - n/4].avl) {
-                container_of(i, test_t, avl)->x++;
+                container_of(i, struct test_struct, avl)->x++;
 	}
 
 	for (size_t i = 0; i < n/4; i++)

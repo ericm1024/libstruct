@@ -32,12 +32,12 @@
 #define KRED  "\x1B[31m"
 #define RESET "\033[0m"
 
-typedef struct {
+struct test_struct {
 	int x;
-	rb_node_t rb;
-} test_t;
+	struct rb_node rb;
+};
 
-size_t count_nodes(rb_node_t *n)
+size_t count_nodes(struct rb_node *n)
 {
 	if (!n)
 		return 0;
@@ -46,7 +46,7 @@ size_t count_nodes(rb_node_t *n)
 			+ count_nodes(n->chld[1]);
 }
 
-unsigned long valid_node(rb_head_t *hd, rb_node_t *n)
+unsigned long valid_node(struct rb_head *hd, struct rb_node *n)
 {
 	if (!n)
 		return 1;
@@ -68,8 +68,8 @@ unsigned long valid_node(rb_head_t *hd, rb_node_t *n)
 	/* check for red violations */
 	unsigned long black = 0;
 	if (((uintptr_t)n->parent & 1UL) == 1UL) {
-		if ((rb_node_t*)((uintptr_t)n->parent & ~1))
-			ASSERT_TRUE(((uintptr_t)((rb_node_t*)((uintptr_t)n->parent
+		if ((struct rb_node*)((uintptr_t)n->parent & ~1))
+			ASSERT_TRUE(((uintptr_t)((struct rb_node*)((uintptr_t)n->parent
 	               & ~1))->parent & 1UL) == 0, "valid_node: red violation 1\n");
 		if (n->chld[0])
 			ASSERT_TRUE(((uintptr_t)n->chld[0]->parent & 1UL) == 0,
@@ -90,14 +90,14 @@ unsigned long valid_node(rb_head_t *hd, rb_node_t *n)
 	return black + right_black_height;
 }
 
-void print_node(rb_node_t *n, size_t offset)
+void print_node(struct rb_node *n, size_t offset)
 {
 	if (!n) {
 		printf("-");
 		return;
 	}
 
-	test_t *data = (test_t *)((uintptr_t)n - offset);
+	struct test_struct *data = (struct test_struct *)((uintptr_t)n - offset);
 	printf("(");
 	print_node(n->chld[0], offset);
 	if (((uintptr_t)n->parent & 1UL) == 1)
@@ -108,13 +108,13 @@ void print_node(rb_node_t *n, size_t offset)
 	printf(")");
 }
 
-void print_tree(rb_head_t *t)
+void print_tree(struct rb_head *t)
 {
 	print_node(t->root, t->offset);
 	printf("\n");
 }
 
-void assert_is_valid_tree(rb_head_t *hd)
+void assert_is_valid_tree(struct rb_head *hd)
 {
 	ASSERT_TRUE(hd->nnodes == count_nodes(hd->root),
 		"is_valid_tree: hd->nnodes is wrong.\n");
@@ -123,8 +123,8 @@ void assert_is_valid_tree(rb_head_t *hd)
 
 long point_cmp(void *lhs, void *rhs)
 {
-	int rx = ((test_t*)rhs)->x;
-	int lx = ((test_t*)lhs)->x;
+	int rx = ((struct test_struct*)rhs)->x;
+	int lx = ((struct test_struct*)lhs)->x;
 
 	if (lx < rx)
 		return -1;
@@ -141,8 +141,8 @@ long point_cmp(void *lhs, void *rhs)
 
 void test_insert()
 {
-	RB_TREE(t, &point_cmp, test_t, rb);
-	test_t data[n*2];
+	RB_TREE(t, &point_cmp, struct test_struct, rb);
+	struct test_struct data[n*2];
 	
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = rand();
@@ -169,8 +169,8 @@ void test_insert()
 
 void test_delete()
 {
-	RB_TREE(t, &point_cmp, test_t, rb);
-	test_t data[n];
+	RB_TREE(t, &point_cmp, struct test_struct, rb);
+	struct test_struct data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = rand();
@@ -190,8 +190,8 @@ void test_delete()
 
 void test_itterators()
 {
-	RB_TREE(t, &point_cmp, test_t, rb);
-	test_t data[n];
+	RB_TREE(t, &point_cmp, struct test_struct, rb);
+	struct test_struct data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
@@ -240,15 +240,15 @@ void test_itterators()
 
 void test_for_each()
 {
-	RB_TREE(t, &point_cmp, test_t, rb);
-	test_t data[n];
+	RB_TREE(t, &point_cmp, struct test_struct, rb);
+	struct test_struct data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
 		rb_insert(&t, (void*)&data[i]);
 	}
 
-	rb_for_each_inorder(&t, test_t, i)
+	rb_for_each_inorder(&t, struct test_struct, i)
 		i->x++;
 	
 	for (size_t i = 0; i < n; i++)
@@ -259,15 +259,15 @@ void test_for_each()
 
 void test_for_each_range()
 {
-	RB_TREE(t, &point_cmp, test_t, rb);
-	test_t data[n];
+	RB_TREE(t, &point_cmp, struct test_struct, rb);
+	struct test_struct data[n];
 
 	for (size_t i = 0; i < n; i++) {
 		data[i].x = i;
 		rb_insert(&t, (void*)&data[i]);
 	}
 
-	rb_for_each_range(&t, test_t, i, &data[n/4], &data[n - n/4])
+	rb_for_each_range(&t, struct test_struct, i, &data[n/4], &data[n - n/4])
 		i->x++;
 
 	for (size_t i = 0; i < n/4; i++)
@@ -283,11 +283,11 @@ void test_for_each_range()
 
 void test_postorder_iterate()
 {
-	RB_TREE(t, &point_cmp, test_t, rb);
-	test_t *array[n];
+	RB_TREE(t, &point_cmp, struct test_struct, rb);
+	struct test_struct *array[n];
 
 	for (size_t i = 0; i < n; i++) {
-		array[i] = malloc(sizeof(test_t));
+		array[i] = malloc(sizeof(struct test_struct));
 		ASSERT_TRUE(array[i], "malloc failed!\n");
 		array[i]->x = rand();
 		rb_insert(&t, (void*)array[i]);
