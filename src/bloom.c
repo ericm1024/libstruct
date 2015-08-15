@@ -65,6 +65,37 @@ static inline bool get_bit(const struct bloom *bf, unsigned long biti)
 	return !!(bf->bits[i] & mask);
 }
 
+bool bloom_same_class(const struct bloom *bf0, const struct bloom *bf1)
+{
+	unsigned i = 0;
+
+	if (bf0->nbits != bf1->nbits || bf0->nhash != bf1->nhash)
+		return false;
+
+	for (i = 0; i < bf0->nhash; i++)
+		if (bf0->seeds[i] != bf1->seeds[i])
+			return false;
+
+	return true;
+}
+
+static bool bloom_init_arrays(struct bloom *bf)
+{
+	/* try to alocate both arrays */
+	bf->bits = malloc(sizeof *bf->bits * bf->bsize);
+	if (!bf->bits)
+		return false;
+
+	bf->seeds = malloc(sizeof *bf->seeds * bf->nhash);
+	if (!bf->seeds) {
+		free(bf->bits);
+		bf->bits = NULL;
+		return false;
+	}
+	memset(bf->bits, 0, sizeof *bf->bits * bf->bsize);
+	return true;
+}
+
 bool bloom_init(struct bloom *bf)
 {
         double p, n, m, k;
@@ -115,23 +146,29 @@ bool bloom_init(struct bloom *bf)
 	bf->nbits = bf->bsize * BITS_PER_LONG;
 	bf->nhash = k;
 
-	/* try to alocate both arrays */
-	bf->bits = malloc(sizeof *bf->bits * bf->bsize);
-	if (!bf->bits)
+	if (!bloom_init_arrays(bf))
 		return false;
-	
-	bf->seeds = malloc(sizeof *bf->seeds * bf->nhash);
-	if (!bf->seeds) {
-		free(bf->bits);
-		return false;
-	}
-
-	memset(bf->bits, 0, sizeof *bf->bits * bf->bsize);
 	
 	/* generate seeds for the hash functions */
 	for (i = 0; i < bf->nhash; i++)
 		bf->seeds[i] = pcg64_random();
 
+	return true;
+}
+
+bool bloom_init_from(struct bloom *restrict bf,
+		     const struct bloom *restrict other)
+{
+	bf->n = other->n;
+	bf->bsize = other->bsize;
+	bf->nhash = other->nhash;
+	bf->p = other->p;
+	bf->nbits = other->nbits;
+
+	if (!bloom_init_arrays(bf))
+		return false;
+
+	memcpy(bf->seeds, other->seeds, sizeof *other->seeds * other->nhash);
 	return true;
 }
 
@@ -164,5 +201,68 @@ bool bloom_query(const struct bloom *bf, uint64_t key)
 		if (!get_bit(bf, hash % bf->nbits))
 			return false;
 	}
+	return true;
+}
+
+/**
+ * \brief Helper for bloom_union and bloom_intersection.
+ * \detail Check if into, bf0, and bf1 are all the same class, but allow
+ * into to be uninitialized.
+ *
+ * \param into    The filter to merge into.
+ * \param bf0     One filter to merge.
+ * \param bf1     The other filter to merge.
+ *
+ * \return True if bf0 and bf1 can be merged into into.
+ */
+static bool can_merge(struct bloom *into, const struct bloom *bf0,
+		      const struct bloom *restrict bf1)
+{
+	bool need_free = false;
+
+	/* we allow into to be uninitialized, if it is unique */
+	if (into != bf0 && !into->bits) {
+		need_free = true;
+		*into = BLOOM_FILTER_INITIALIZER(bf0->n, bf0->p);
+		if (!bloom_init_from(into, bf0))
+			return false;
+	}
+
+	if (!bloom_same_class(into, bf0) || !bloom_same_class(into, bf1)) {
+		if (need_free)
+			bloom_destroy(into);
+		return false;
+	}
+
+	return true;
+}
+
+bool bloom_union(struct bloom *restrict into,
+		 const struct bloom *restrict bf0,
+		 const struct bloom *restrict bf1)
+{
+	unsigned long i;
+
+	if (!can_merge(into, bf0, bf1))
+		return false;
+
+	for (i = 0; i < into->bsize; i++)
+		into->bits[i] = bf0->bits[i] | bf1->bits[i];
+
+	return true;
+}
+
+bool bloom_intersection(struct bloom *restrict into,
+			const struct bloom *restrict bf0,
+			const struct bloom *restrict bf1)
+{
+	unsigned long i;
+
+	if (!can_merge(into, bf0, bf1))
+		return false;
+
+	for (i = 0; i < into->bsize; i++)
+		into->bits[i] = bf0->bits[i] & bf1->bits[i];
+
 	return true;
 }

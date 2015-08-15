@@ -98,6 +98,18 @@ struct bloom {
 #define BLOOM_P_DEFAULT (5e-3)
 
 /**
+ * \brief Initialize an already allocated bloom filter. See BLOOM_FILTER.
+ */
+#define BLOOM_FILTER_INITIALIZER(nkeys, prob) (struct bloom) {	\
+		        .bits = NULL,				\
+			.seeds = NULL,				\
+			.n = (nkeys),				\
+			.bsize = 0,				\
+			.nhash = 0,				\
+			.p = (prob),				\
+			.nbits = 0};
+
+/**
  * \brief Declare a bloom filter.
  * \param name  (token) name of the filter to declare
  * \param n  Expected number of keys to be inserted into the filter.
@@ -106,15 +118,8 @@ struct bloom {
  * \detail This does not initialize the structure. That is done by
  * bloom_init.
  */
-#define BLOOM_FILTER(name, nkeys, prob)			   \
-	struct bloom name = {				   \
-		.bits = NULL,				   \
-		.seeds = NULL,				   \
-		.n = (nkeys),				   \
-		.bsize = 0,				   \
-		.nhash = 0,				   \
-		.p = (prob),				   \
-		.nbits = 0};
+#define BLOOM_FILTER(name, nkeys, prob)				\
+	struct bloom name = BLOOM_FILTER_INITIALIZER(nkeys, prob)
 
 /**
  * \brief Initialize a bloom filter.
@@ -122,6 +127,32 @@ struct bloom {
  * \return true on sucess, false on allocation failure.
  */
 extern bool bloom_init(struct bloom *bf);
+
+/**
+ * \brief Initialize a bloom filter with the same seeds as anohter bloom
+ * filter.
+ * \param bf  The filter to initialize. Every field in this filter is clobbered.
+ * \return true on sucess, false on allocation failure or invalid params.
+ *
+ * \detail In order to take the union or intersection of two filters, they
+ * must have the same hash keys and the same size.
+ */
+extern bool bloom_init_from(struct bloom *restrict bf,
+			    const struct bloom *restrict other);
+
+/**
+ * \brief Determine if to bloom filters are in the same 'class'. In order to
+ * take the union or intersection of two filters, this predicate must return
+ * true.
+ * \param bf0   A filter to compare
+ * \param bf1   The filter to compare against.
+ * \return True if the filters are in the same class, meaning the have the same
+ * size and same hash seeds (and by extension the same number of hash functions).
+ *
+ * \detail To get two filters for which this is guarenteed to return true,
+ * initialize the first filter, then call bloom_init_from on the second.
+ */
+bool bloom_same_class(const struct bloom *bf0, const struct bloom *bf1);
 
 /**
  * \brief Destroy a bloom filter.
@@ -144,5 +175,41 @@ extern void bloom_insert(struct bloom *bf, uint64_t key);
  * \return true if the key probably exists, false if it definitely does not. 
  */
 extern bool bloom_query(const struct bloom *bf, uint64_t key);
+
+/**
+ * \brief Compute the union of two bloom filters into a third, distinct bloom
+ * filter.
+ *
+ * \param into   Thew new bloom filter will be put here. This filter may or
+ *               may not be initialized. If it is, it must be the same class
+ *               as determined by bloom_same_class.
+ * \param bf0    One filter to merge. Unmodified. May be the same as into.
+ * \param bf1    Other filter to merge. Unomdified.
+ * \return       True if sucessfull, false if memory allocation failed or if
+ *               bf0, bf1, and into are not in the same class of bloom filters
+ *
+ * \detail Elements that were in bf0 and bf1 will query 'true' from into.
+ * (False positives from bf0 and bf1 will also querry true from into).
+ */
+bool bloom_union(struct bloom *into, const struct bloom *bf0,
+		 const struct bloom *restrict bf1);
+
+/**
+ * \brief Compute the intersection of two bloom filters into a third, distinct
+ * bloom filter.
+ *
+ * \param into   The new bloom filter will be put here. This filter need not be
+ *               initialized, but if it is, it needs to be the same class as
+ *               bf0 and bf1.
+ * \param bf0    One filter to merge. Unmodified. May be the same as into.
+ * \param bf1    The other filter to merge. Unmodified.
+ * \return       True on success, false if memory allocation failed or if into,
+ *               bf0, and bf1 are not the same filter class
+ *
+ * \detail       Elements that query true from into will have existed in bf0 and
+ *               bf1 with high probability.
+ */
+bool bloom_intersection(struct bloom *into, const struct bloom *bf0,
+			const struct bloom *restrict bf1);
 
 #endif /* STRUCT_BLOOM_H */
