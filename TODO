@@ -5,6 +5,7 @@ tests:
 
 bugs:
 	- rbtree postorder itteration is failing.
+	- radix tree is not fully tested
 
 issues:
 	- none that I know of right now
