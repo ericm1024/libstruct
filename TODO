@@ -49,7 +49,6 @@ refactoring:
           of libc's rand() because it's a bad egg.
         - change all declaration macros (i.e. LIST_HEAD) to be initializers
           so they can be used with dynamically allocated memory
-        - make script that runs tests better
 
 wish list:
 	- benchmark and optimize all structures

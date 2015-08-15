@@ -2,10 +2,14 @@
 
 while [ $# -gt 0 ]
 do
-    ./$1 >/dev/null 2>&1
+    echo "******************** running $1 ********************"
+    time ./$1
     if [ $? -ne 0 ]
     then
-	echo "test $1 failed"
-    fi	
+	echo "$1 failed"
+    else
+	echo "$1 passed"
+    fi
+    echo ""
     shift
 done
