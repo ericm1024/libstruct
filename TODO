@@ -49,6 +49,13 @@ refactoring:
           of libc's rand() because it's a bad egg.
         - change all declaration macros (i.e. LIST_HEAD) to be initializers
           so they can be used with dynamically allocated memory
+	- improve test framework
+	    - assert macros should be printf-like. don't need newline
+	    - use calloc everywhere
+	    - support multiple runs of test function with parameters
+	    - remove need to write main
+	    - one dead test shouldn't kill whole suite
+	    - test should bail after first assertion failure
 
 wish list:
 	- benchmark and optimize all structures
