@@ -52,7 +52,11 @@ typedef struct cs_cursor* cs_cursor_t;
 /*! chunky string structure */
 struct chunky_str {
 	/*! doubly linked list of chunks */
-	struct list_head str;
+	struct list str;
+
+	/*! number of chunks in the above list */
+	unsigned long nchunks;
+
 	/*! number of characters in the string */
 	unsigned long nchars;
 };
@@ -60,20 +64,19 @@ struct chunky_str {
 /**
  * \brief Definition of a default chunky string.
  */ 
-#define CHUNKY_STRING_DEFAULT				\
+#define CHUNKY_STRING_DEFAULT(name)			\
 	(struct chunky_str){.str = {			\
-			        .first = NULL,		\
-				.last = NULL,		\
-				.length = 0,		\
-				.offset = 0},		\
-			.nchars = 0}
+			        .first = &(name.str),	\
+				.last = &(name.str)},	\
+			    .nchunks = 0,	        \
+			    .nchars = 0}
 
 /**
  * \brief Declare and define a chunky string.
  * \param name   (token) name of the string to declare.
  */
 #define CHUNKY_STRING(name)			\
-	struct chunky_str name = CHUNKY_STRING_DEFAULT
+	struct chunky_str name = CHUNKY_STRING_DEFAULT(name)
 
 
 

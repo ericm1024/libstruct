@@ -78,6 +78,26 @@ static inline bool chunk_is_full(struct cs_chunk *chunk)
 	return chunk->end == NCHARS;
 }
 
+static struct cs_chunk *cursor_next_chunk(const cs_cursor_t cursor)
+{
+	return list_next_entry(&cursor->chunk, struct cs_chunk, link);
+}
+
+static struct cs_chunk *cursor_prev_chunk(const cs_cursor_t cursor)
+{
+	return list_prev_entry(&cursor->chunk, struct cs_chunk, link);
+}
+
+static struct cs_chunk *cursor_first_chunk(const cs_cursor_t cursor)
+{
+	return list_first_entry(&cursor->owner->str, struct cs_chunk, link);
+}
+
+static struct cs_chunk *cursor_last_chunk(const cs_cursor_t cursor)
+{
+	return list_last_entry(&cursor->owner->str, struct cs_chunk, link);
+}
+
 static inline bool split_chunk(struct chunky_str *cs, struct cs_chunk *chunk)
 {
 	struct cs_chunk* new_chunk = malloc(sizeof (struct cs_chunk));
@@ -92,7 +112,8 @@ static inline bool split_chunk(struct chunky_str *cs, struct cs_chunk *chunk)
 	 * put the chunk in the list; give it half the chars
 	 * from cursor->chunk
 	 */
-	list_insert_after(&cs->str, chunk, new_chunk);
+	list_insert_after(&chunk->link, &new_chunk->link);
+	chunk->owner->nchunks++;
 	for (old = NCHARS/2, new = 0; old < NCHARS; old++, new++)
 		new_chunk->chars[new] = chunk->chars[old];
 
@@ -109,7 +130,7 @@ static bool split_chunk_cursor(struct cs_cursor *cursor)
 
 	if (cursor->index >= cursor->chunk->end) {
 		cursor->index -= cursor->chunk->end;
-		cursor->chunk = list_next(&cursor->owner->str, cursor->chunk);
+		cursor->chunk = cursor_next_chunk(cursor);
 	}
 	return true;
 }
@@ -128,7 +149,7 @@ static unsigned long merge_two_chunks(struct chunky_str *cs,
 	for (i = prev->end, j = 0; j < next->end; i++, j++)
 		prev->chars[i] = next->chars[j];
 
-	list_delete(&cs->str, next);
+	list_delete(&next->link);
 	free(next);
 	prev->end = i;
 	return j;
@@ -162,8 +183,6 @@ static void shift_chars(struct cs_chunk *chunk, unsigned long start, long shift)
 	chunk->end += shift;
 	assert(chunk->end <= NCHARS);
 }
-
-
 
 /* ========================================================================== */
 /*                             cursor ops                                     */
@@ -202,7 +221,7 @@ bool cs_cursor_equal(cs_cursor_t lhs, cs_cursor_t rhs)
 
 void cs_cursor_begin(cs_cursor_t cursor)
 {
-	cursor->chunk = list_first(&cursor->owner->str);
+	cursor->chunk = cursor_first_chunk(cursor);
 	cursor->index = 0;
 }
 
@@ -226,7 +245,7 @@ char cs_cursor_next(cs_cursor_t cursor)
 {
 	cursor->index++;
 	if (cursor->index >= cursor->chunk->end) {
-		cursor->chunk = list_next(&cursor->owner->str, cursor->chunk);
+		cursor->chunk = list_next_entry(&cursor->chunk, struct cs_chunk, link);
 		cursor->index = 0;
 	}
 	return cursor->chunk ? CURSOR_DEREF(cursor) : NULL_BYTE;
@@ -236,10 +255,12 @@ char cs_cursor_prev(cs_cursor_t cursor)
 {
 	cursor->index--;
 	if (!cursor->chunk) {
-		cursor->chunk = list_last(&cursor->owner->str);
+		cursor->chunk = list_last_entry(&cursor->owner->str,
+						struct cs_chunk, link);
 		cursor->index = cursor->chunk->end - 1;
 	} else if (cursor->index >= cursor->chunk->end) {
-		cursor->chunk = list_prev(&cursor->owner->str, cursor->chunk);
+		cursor->chunk = list_prev_entry(&cursor->chunk,
+						struct cs_chunk, link);
 		if (cursor->chunk)
 			cursor->index = cursor->chunk->end - 1;
 	}
