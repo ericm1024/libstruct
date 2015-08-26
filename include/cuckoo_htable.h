@@ -32,15 +32,12 @@
  *
  * Synchronization is left to the caller.
  *
- * IMPORTANT NOTE: Because of the colision resolution algorithm used by this
- * hash table, it can not handle multiple insertions of the same key. To be
- * clear, inserting multiple of the same key is undefined behavior. If you're
- * not sure if your key already exists in the table, ask with a call to
- * cuckoo_htable_exists
+ * IMPORTANT NOTE: Because of the collision resolution algorithm used by this
+ * hash table, it can not handle multiple insertions of the same key.
  */
 
 #ifndef STRUCT_CUCKOO_HTABLE_H
-#define STRUCT_CUCKOO_HTABLE_H 1
+#define STRUCT_CUCKOO_HTABLE_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -51,17 +48,10 @@
  */
 #define CUCKOO_HTABLE_NTABLES (2U)
 
-/* hash table types */
-struct cuckoo_bucket;
-
 /* note -- you should not declare one of these yourself */
 struct cuckoo_table {
-	/*
-	 * nr of buckets in each table -- NOT the actual capacity of this
-	 * entire struct or a single array. That is given by the capacity
-	 * field of a struct cuckoo_head
-	 */
-	unsigned long capacity;
+	/* number of elements in each of the arrays in tables */
+	unsigned long table_buckets;
 	
 	/* buckets where key-value pairs are stored */ 
 	struct cuckoo_bucket *tables[CUCKOO_HTABLE_NTABLES];
@@ -87,7 +77,7 @@ struct cuckoo_head {
 
 	/*
 	 * some statistics to keep tabs on how many major internal
-	 * ops have occured.
+	 * ops have occurred.
 	 *     - resizes keeps track of the number of times the table
 	 *       has been resized. Does not count resizes that failed.
 	 *     - rehashes keeps track of the number of times the table
@@ -115,7 +105,7 @@ struct cuckoo_head {
 		.nentries = 0,				\
 		.capacity = 0,				\
                 .table = {				\
-		        .capacity = 0,			\
+		        .table_buckets = 0,             \
 		        .tables = {0}},			\
 		.stat_resizes = 0,			\
 		.stat_rehashes = 0,			\
@@ -125,69 +115,69 @@ struct cuckoo_head {
 /**
  * \brief Initialize a hash table of a given size.
  *
- * \param ht        Pointer to the hash table to initialize.
+ * \param head      Pointer to the hash table to initialize.
  * \param capacity  How many insertions to allocate space for (upper bound).
  * \return true on success or false if table allocation failed.
  */
-bool cuckoo_htable_init(struct cuckoo_head *head,
-			unsigned long capacity);
-
+bool cuckoo_htable_init(struct cuckoo_head *head, unsigned long capacity);
+ 
 /**
  * \brief Deallocate any memory that was allocated by the hash table.
- * \param ht  Pointer to the hash table to deallocate.
+ * \param head  Pointer to the hash table to deallocate.
  */
 void cuckoo_htable_destroy(struct cuckoo_head *head);
 
 /**
  * \brief Insert an element into a table.
  *
- * \param ht    Pointer to the hash table to remove from.
+ * \param head  Pointer to the hash table to insert into.
  * \param key   Key to insert.
  * \param value Value to insert along with the key.
- * \return true if the insertion suceeded, false if the table is full. Note
+ * \return true if the insertion succeeded, false if the table is full. Note
  *         that if the inserted key already exists, insert will return true
  *         without modifying the table.
  */
 bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
-			  void const *value);
+                          void const *value);
 
 /**
- * \brief Query the existance of an element in a table.
+ * \brief Query the existence of an element in a table.
  *
- * \param ht   Pointer to the hash table to remove from.
- * \param key  Key to look up.
+ * \param head  Pointer to the hash table to search.
+ * \param key   Key to look up.
  * \return true if the object exists, false if not.
  */
-bool cuckoo_htable_exists(struct cuckoo_head const *head,
-			  uint64_t key);
+bool cuckoo_htable_exists(struct cuckoo_head const *head, uint64_t key);
 
 /**
  * \brief Remove an element from the table.
  * 
- * \param ht   Pointer to hash table to remove from.
- * \param key  Key to remove.
+ * \param head  Pointer to hash table to remove from.
+ * \param key   Key to remove.
+ *
+ * \return The value that was removed.
  */
-void cuckoo_htable_remove(struct cuckoo_head *head, uint64_t key);
+const void *cuckoo_htable_remove(struct cuckoo_head *head, uint64_t key);
 
 /**
  * \brief Get the value corresponding to a key, if such a key exists.
  *
- * \param ht   Pointer to the hash table to search.
- * \param key  Key to searh for.
- * \param out  If a value is found, it is put here.
+ * \param head  Pointer to the hash table to search.
+ * \param key   Key to search for.
+ * \param out   If a value is found, it is put here.
  * \return true if a value corresponding to the given key was found, false if
  *         it was not found.
  */
-bool cuckoo_htable_get(struct cuckoo_head const *restrict head,
-		       uint64_t key, void const **restrict out);
+bool cuckoo_htable_get(struct cuckoo_head const *head,
+		       uint64_t key, void const **out);
 
 /**
- * \brief Begin the resizing process for a hash tabe.
- * \param ht        The hash table to resize.
+ * \brief Begin the resizing process for a hash table.
+ * \param head      The hash table to resize.
  * \param grow      True if the table should grow, false to shrink.
- * \return true if the resize is sucesful, false if memory allocation
+ * \return true if the resize is successful, false if memory allocation
  * fails.
  */
 bool cuckoo_htable_resize(struct cuckoo_head *head, bool grow);
 
-#endif /* STRUCT_HTABLE_H */
+#endif /* STRUCT_CUCKOO_HTABLE_H */

@@ -36,8 +36,16 @@
  *       about you, but I don't have that much memory.
  */
 
-#define n 1000000
+#define n (1000 * 1000)
 struct value { int x; int y; };	
+
+void print_stats(struct cuckoo_head *head)
+{
+        printf("stat_resizes: %lu\n", head->stat_resizes);
+        printf("stat_rehashes: %lu\n", head->stat_rehashes);
+        printf("stat_rehash_fails: %lu\n", head->stat_rehash_fails);
+        printf("stat_rehash_fails_max: %lu\n", head->stat_rehash_fails_max);
+}
 
 /* 
  * 1. init & destroy:
@@ -50,7 +58,7 @@ void test_init_destroy()
 	CUCKOO_HASH_TABLE(t);
 
 	/* call init */
-	cuckoo_htable_init(&t, 16);
+	ASSERT_TRUE(cuckoo_htable_init(&t, 16), "init failed\n");
 
 	ASSERT_TRUE(t.capacity != 0, "size was zero after initialisation.\n");
 	ASSERT_TRUE(t.nentries == 0,
@@ -76,7 +84,7 @@ void test_init_destroy()
 void test_insert_same()
 {
 	CUCKOO_HASH_TABLE(t);
-	cuckoo_htable_init(&t, 16);
+	ASSERT_TRUE(cuckoo_htable_init(&t, 16), "init failed\n");
 
 	int x = rand();
 	
@@ -89,14 +97,14 @@ void test_insert_same()
 	ASSERT_TRUE(cuckoo_htable_insert(&t, x, NULL), "insert failed.\n");
 	ASSERT_TRUE(t.nentries == 1, "entries was incrimented "
 		    "after inserting same element.\n");
-	
+
 	cuckoo_htable_destroy(&t);
 }
 
-void test_insert_few()
+void test_insert_noresize()
 {
 	CUCKOO_HASH_TABLE(t);
-	cuckoo_htable_init(&t, 2*n);
+	ASSERT_TRUE(cuckoo_htable_init(&t, 2*n), "init failed\n");
 	
 	for (size_t i = 0; i < n; i++) {
 		ASSERT_TRUE(cuckoo_htable_insert(&t, i, NULL),
@@ -114,10 +122,10 @@ void test_insert_few()
 	cuckoo_htable_destroy(&t);
 }
 
-void test_insert_many()
+void test_insert_resize()
 {
 	CUCKOO_HASH_TABLE(t);
-	cuckoo_htable_init(&t, 1);
+	ASSERT_TRUE(cuckoo_htable_init(&t, 1), "init failed\n");
 	size_t initial_size = t.capacity;
 	
 	for (size_t i = 0; i < n; i++) {
@@ -128,6 +136,8 @@ void test_insert_many()
 		ASSERT_TRUE(t.nentries == i + 1,
 			    "entries was not incremented properly.\n");
         }
+
+        print_stats(&t);
 
 	for (size_t i = 0; i < n; i++)
 		ASSERT_TRUE(cuckoo_htable_exists(&t, i),
@@ -149,7 +159,7 @@ void test_insert_many()
 void test_exists()
 {
 	CUCKOO_HASH_TABLE(t);
-	cuckoo_htable_init(&t, 16);
+	ASSERT_TRUE(cuckoo_htable_init(&t, 16), "init failed\n");
 
 	uint64_t *keys = malloc(sizeof (uint64_t) * (2*n));
 	struct value *data = malloc(sizeof (struct value) * n);
@@ -176,6 +186,7 @@ void test_exists()
 			     "returned true for key that was not inserted.\n");
 	}
 
+        print_stats(&t);
 	cuckoo_htable_destroy(&t);
 	free(keys);
 	free(data);
@@ -191,7 +202,7 @@ void test_exists()
 void test_remove()
 {
 	CUCKOO_HASH_TABLE(t);
-	cuckoo_htable_init(&t, 16);
+	ASSERT_TRUE(cuckoo_htable_init(&t, 16), "init failed\n");
 
 	uint64_t *keys = malloc(sizeof (uint64_t) * n);
 	struct value *data = malloc(sizeof (struct value) * n);
@@ -216,13 +227,15 @@ void test_remove()
 	}
 
 	for (size_t i = 0; i < n; i++) {
-		cuckoo_htable_remove(&t, i);
+		const void *ret = cuckoo_htable_remove(&t, i);
+                ASSERT_TRUE(ret == (void*)&data[i], "remove returned wrong element\n");
 		ASSERT_TRUE(t.nentries == n - (i+1), "nentries was "
 			    "not decremented after removal.\n");
 		ASSERT_FALSE(cuckoo_htable_exists(&t, i), "exists "
 			     "returns true for removed element.\n");
 	}
-	
+
+        print_stats(&t);
 	cuckoo_htable_destroy(&t);
 	free(keys);
 	free(data);
@@ -273,6 +286,7 @@ void test_get()
 			    "even though no value was found.\n");
 	}
 
+        print_stats(&t);
 	cuckoo_htable_destroy(&t);
 	free(keys);
 	free(data);
@@ -284,8 +298,8 @@ int main(void)
 	srand(time(NULL));
 	REGISTER_TEST(test_init_destroy);
 	REGISTER_TEST(test_insert_same);
-	REGISTER_TEST(test_insert_few);
-	REGISTER_TEST(test_insert_many);
+	REGISTER_TEST(test_insert_noresize);
+	REGISTER_TEST(test_insert_resize);
 	REGISTER_TEST(test_exists);
 	REGISTER_TEST(test_remove);
 	REGISTER_TEST(test_get);
