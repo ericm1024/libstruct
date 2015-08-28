@@ -59,9 +59,6 @@
 #include <assert.h>
 #include <math.h>
 
-#define CACHELINE (64)
-#define BUCKET_SIZE (CACHELINE/(sizeof(uint64_t)+sizeof(void*)))
-
 /* hash function wrapper */
 static uint64_t cuckoo_hash(uint64_t key, uint64_t seed)
 {
@@ -124,6 +121,12 @@ static uint64_t cuckoo_rand64()
 #define TAG_OCCUPIED ((uintptr_t)0x1)
 #define TAG_INVALID ((uintptr_t)0x2)
 #define TAG_WIDTH (TAG_OCCUPIED | TAG_INVALID)
+
+/* this definition isn't portable but it's good enough for now */
+#define CACHELINE (64)
+
+/* how many keys/values can we fit in a cacheline? */
+#define BUCKET_SIZE (CACHELINE/(sizeof(uint64_t)+sizeof(void*)))
 
 struct cuckoo_bucket {
 	uint64_t keys[BUCKET_SIZE];
