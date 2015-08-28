@@ -49,7 +49,7 @@
 #define CUCKOO_HTABLE_NTABLES (2U)
 
 /* note -- you should not declare one of these yourself */
-struct cuckoo_table {
+struct cuckoo_tables {
 	/* number of elements in each of the arrays in tables */
 	unsigned long table_buckets;
 	
@@ -73,7 +73,7 @@ struct cuckoo_head {
 	unsigned long capacity;
 
 	/* the actual table */
-	struct cuckoo_table table;
+	struct cuckoo_tables tables;
 
 	/*
 	 * some statistics to keep tabs on how many major internal
@@ -104,7 +104,7 @@ struct cuckoo_head {
 	struct cuckoo_head name = {			\
 		.nentries = 0,				\
 		.capacity = 0,				\
-                .table = {				\
+                .tables = {				\
 		        .table_buckets = 0,             \
 		        .tables = {0}},			\
 		.stat_resizes = 0,			\
