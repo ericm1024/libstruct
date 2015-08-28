@@ -152,6 +152,7 @@ struct cuckoo_bucket {
 /* set a value at index i in a bucket */
 static void set_val(struct cuckoo_bucket *bkt, const void *val, unsigned long i)
 {
+        assert(!((uintptr_t)val & TAG_WIDTH));
         bkt->vals.ptrs[i] = val;
         bkt->vals.tags[i] |= TAG_OCCUPIED;
 }

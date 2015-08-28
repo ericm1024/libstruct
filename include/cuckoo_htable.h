@@ -132,7 +132,9 @@ void cuckoo_htable_destroy(struct cuckoo_head *head);
  *
  * \param head  Pointer to the hash table to insert into.
  * \param key   Key to insert.
- * \param value Value to insert along with the key.
+ * \param value Value to insert along with the key. MUST be aligned on at least
+ *              a 4 byte boundary, otherwise an assertion will trip and your
+ *              program will crash
  * \return true if the insertion succeeded, false if the table is full. Note
  *         that if the inserted key already exists, insert will return true
  *         without modifying the table.
