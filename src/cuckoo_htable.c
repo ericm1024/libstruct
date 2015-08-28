@@ -423,7 +423,6 @@ bool cuckoo_htable_init(struct cuckoo_head *head,
                 return false;
 
         head->capacity = capacity;
-        head->nentries = 0;
         return true;
 }
 
