@@ -50,49 +50,49 @@
 
 /* note -- you should not declare one of these yourself */
 struct cuckoo_tables {
-	/* number of elements in each of the arrays in tables */
-	unsigned long table_buckets;
-	
-	/* buckets where key-value pairs are stored */ 
-	struct cuckoo_bucket *tables[CUCKOO_HTABLE_NTABLES];
-	
-	/*
-	 * seeds for the hash function. We need CUCKOO_HTABLE_NTABLES
-	 * independent hash functions, but it is sufficient to use
-	 * CUCKOO_HTABLE_NTABLES seeds for the same function, as long
-	 * as we have good random seeds.
-	 */ 
-	uint64_t seeds[CUCKOO_HTABLE_NTABLES];
+        /* number of elements in each of the arrays in tables */
+        unsigned long table_buckets;
+
+        /* buckets where key-value pairs are stored */
+        struct cuckoo_bucket *tables[CUCKOO_HTABLE_NTABLES];
+
+        /*
+         * seeds for the hash function. We need CUCKOO_HTABLE_NTABLES
+         * independent hash functions, but it is sufficient to use
+         * CUCKOO_HTABLE_NTABLES seeds for the same function, as long
+         * as we have good random seeds.
+         */
+        uint64_t seeds[CUCKOO_HTABLE_NTABLES];
 };
 
 struct cuckoo_head {
-	/* number of key-value pairs currently contained in the table */
-	unsigned long nentries;
+        /* number of key-value pairs currently contained in the table */
+        unsigned long nentries;
 
-	/* maximum number of key-value pairs that we can store */
-	unsigned long capacity;
+        /* maximum number of key-value pairs that we can store */
+        unsigned long capacity;
 
-	/* the actual table */
-	struct cuckoo_tables tables;
+        /* the actual table */
+        struct cuckoo_tables tables;
 
-	/*
-	 * some statistics to keep tabs on how many major internal
-	 * ops have occurred.
-	 *     - resizes keeps track of the number of times the table
-	 *       has been resized. Does not count resizes that failed.
-	 *     - rehashes keeps track of the number of times the table
-	 *       has needed to be rehashed. Note that if a rehash fails,
-	 *       this will not be incremented -- this is just the number of
-	 *       times that we needed to go into the rehash loop.
-	 *     - rehash_fails keeps track of the number of times
-	 *       that a rehash has failed and needed to be restarted
-	 *     - rehash_fails_max keeps track of the maximum number of times
-	 *       that a single rehash has needed to restart.
-	 */
-	unsigned long stat_resizes;
-	unsigned long stat_rehashes;
-	unsigned long stat_rehash_fails;
-	unsigned long stat_rehash_fails_max;
+        /*
+         * some statistics to keep tabs on how many major internal
+         * ops have occurred.
+         *     - resizes keeps track of the number of times the table
+         *       has been resized. Does not count resizes that failed.
+         *     - rehashes keeps track of the number of times the table
+         *       has needed to be rehashed. Note that if a rehash fails,
+         *       this will not be incremented -- this is just the number of
+         *       times that we needed to go into the rehash loop.
+         *     - rehash_fails keeps track of the number of times
+         *       that a rehash has failed and needed to be restarted
+         *     - rehash_fails_max keeps track of the maximum number of times
+         *       that a single rehash has needed to restart.
+         */
+        unsigned long stat_resizes;
+        unsigned long stat_rehashes;
+        unsigned long stat_rehash_fails;
+        unsigned long stat_rehash_fails_max;
 };
 
 /**
@@ -100,17 +100,17 @@ struct cuckoo_head {
  *
  * \param name  (token) The name of the hash table to declare.
  */
-#define CUCKOO_HASH_TABLE(name)				\
-	struct cuckoo_head name = {			\
-		.nentries = 0,				\
-		.capacity = 0,				\
-                .tables = {				\
-		        .table_buckets = 0,             \
-		        .tables = {0}},			\
-		.stat_resizes = 0,			\
-		.stat_rehashes = 0,			\
-		.stat_rehash_fails = 0,			\
-		.stat_rehash_fails_max = 0};
+#define CUCKOO_HASH_TABLE(name)                         \
+        struct cuckoo_head name = {                     \
+                .nentries = 0,                          \
+                .capacity = 0,                          \
+                .tables = {                             \
+                        .table_buckets = 0,             \
+                        .tables = {0}},                 \
+                .stat_resizes = 0,                      \
+                .stat_rehashes = 0,                     \
+                .stat_rehash_fails = 0,                 \
+                .stat_rehash_fails_max = 0};
 
 /**
  * \brief Initialize a hash table of a given size.
@@ -169,7 +169,7 @@ const void *cuckoo_htable_remove(struct cuckoo_head *head, uint64_t key);
  *         it was not found.
  */
 bool cuckoo_htable_get(struct cuckoo_head const *head,
-		       uint64_t key, void const **out);
+                       uint64_t key, void const **out);
 
 /**
  * \brief Begin the resizing process for a hash table.
