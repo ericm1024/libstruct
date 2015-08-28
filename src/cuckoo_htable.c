@@ -31,7 +31,7 @@
  * whole bucket fits snugly within a cache line. In general, hash tables
  * exhibit poor performance as soon as they spill out of L3 cache, as each
  * 'probe' results in main memory access. Typically each access is a read or
- * write for a one machine-word key sized or pointer.
+ * write for a one machine-word sized key sized or pointer.
  *
  * In all schemes but linear and to a lesser extent quadratic probing, the rest
  * of the cacheline will never be used. We can make use of it by having larger
