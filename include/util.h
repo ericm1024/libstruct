@@ -27,8 +27,10 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -60,6 +62,14 @@ static inline bool seed_rng()
 	pcg32_srandom(pcg64_random(), pcg64_random());
 	
 	return true;
+}
+
+static inline unsigned long div_round_up_ul(unsigned long x, unsigned long d)
+{
+        if (x > ULONG_MAX - d)
+                return ULONG_MAX/d;
+        else
+                return (x + d - 1)/d;
 }
 
 #define container_of(__ptr, __type, __member)   \

@@ -414,10 +414,12 @@ static void free_table(struct cuckoo_tables *tables)
 bool cuckoo_htable_init(struct cuckoo_head *head,
                         unsigned long capacity)
 {
+        unsigned long nr_tables;
         if (!seed_rng())
                 return false;
 
-        if (!alloc_table(&head->tables, capacity/CUCKOO_HTABLE_NTABLES + 1))
+        nr_tables = div_round_up_ul(capacity, CUCKOO_HTABLE_NTABLES);
+        if (!alloc_table(&head->tables, nr_tables))
                 return false;
 
         head->capacity = capacity;
