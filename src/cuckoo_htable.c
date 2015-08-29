@@ -644,56 +644,36 @@ bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
         uint64_t key_anchor = key;
         const void *val_anchor = val;
         unsigned long tries = max_insert_tries(head->nentries);
-        bool ret;
 
         /* if it exists, yay */
         if (cuckoo_htable_exists(head, key))
                 return true;
 
-        /* try inserting */
-        ret = true;
-        if (do_insert(&head->tables, &key_anchor, &val_anchor, tries))
-                goto out;
-
-        /* insertion failed, do we need to resize? */
+        /* do we need to resize the table? */
         if (needs_resize(head)) {
-                if (do_resize(head, head->tables.table_buckets*2)) {
+                if (do_resize(head, head->tables.table_buckets*2))
                         head->stat_resizes++;
-                } else {
-                        /*
-                         * this is nasty - if we failed resizing, we need
-                         * to evict the kv-pair we originally inserted and
-                         * reinsert the orphan key so that the table
-                         * remains in a consistent state
-                         *
-                         * Note however that there is the extremely unlikely
-                         * case where the last evicted key was the insertee, in
-                         * which case we have nothing to evict
-                         */
-                        ret = false;
-                        if (key != key_anchor)
-                                cuckoo_htable_remove(head, key);
-                        else
-                                goto out;
-                }
-
-                if (do_insert(&head->tables, &key_anchor, &val_anchor, tries))
-                        goto out;
+                else
+                        return false;
         }
 
-        /*
-         * rehashing is done in an infinite loop, but assuming the random number
-         * generator doesn't suck and we're not trying to insert into an
-         * overfull table, it should always succeed after just a few tries.
-         */
-        head->stat_rehashes++;
-        for (;;) {
-                fails += do_rehash(&head->tables, tries);
+        head->nentries++;
+        if (!do_insert(&head->tables, &key_anchor, &val_anchor, tries)) {
+                /*
+                 * rehashing is done in an infinite loop, but assuming the
+                 * random number generator doesn't suck and we're not trying to
+                 * insert into an overfull table, it should always succeed after
+                 * just a few tries.
+                 */
+                head->stat_rehashes++;
+                for (;;) {
+                        fails += do_rehash(&head->tables, tries);
 
-                if (do_insert(&head->tables, &key_anchor, &val_anchor, tries))
-                        break;
+                        if (do_insert(&head->tables, &key_anchor, &val_anchor, tries))
+                                break;
 
-                fails++;
+                        fails++;
+                }
         }
 
         /* fix up stats */
@@ -701,10 +681,7 @@ bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
         if (fails > head->stat_rehash_fails_max)
                 head->stat_rehash_fails_max = fails;
 
-out:
-        if (ret)
-                head->nentries++;
-        return ret;
+        return true;
 }
 
 bool cuckoo_htable_exists(struct cuckoo_head const *head, uint64_t key)
