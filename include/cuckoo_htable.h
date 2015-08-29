@@ -138,6 +138,8 @@ void cuckoo_htable_destroy(struct cuckoo_head *head);
  * \return true if the insertion succeeded, false if the table is full. Note
  *         that if the inserted key already exists, insert will return true
  *         without modifying the table.
+ *
+ * \detail If the table needs to be resized, its size will be doubled.
  */
 bool cuckoo_htable_insert(struct cuckoo_head *head, uint64_t key,
                           void const *value);
@@ -178,7 +180,10 @@ bool cuckoo_htable_get(struct cuckoo_head const *head,
  * \param head      The hash table to resize.
  * \param grow      True if the table should grow, false to shrink.
  * \return true if the resize is successful, false if memory allocation
- * fails.
+ * fails or if the table can not be shrunk.
+ * \detaul If the table is set to grow, its size is doubled. If it is set to
+ * shrink, its size is halved. Note that the table will not be halved if the
+ * new table would not be big enough.
  */
 bool cuckoo_htable_resize(struct cuckoo_head *head, bool grow);
 
