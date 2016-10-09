@@ -126,3 +126,6 @@ runtest: test
 # compile all dependencies
 deps: dirs
 	cd $(DEPDIR) && $(MAKE)
+
+doc:
+	doxygen Doxyfile
